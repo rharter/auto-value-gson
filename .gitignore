@@ -17,7 +17,9 @@ release.properties
 .idea
 *.iml
 classes
+
 .gradle
+gradle
 
 obj
 
