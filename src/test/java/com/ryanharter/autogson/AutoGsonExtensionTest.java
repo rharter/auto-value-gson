@@ -21,9 +21,14 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.junit.Test;
 
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -64,10 +69,10 @@ public class AutoGsonExtensionTest {
   }
 
   @Test public void generatesTypeAdapter() throws Exception {
-    Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
-    properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(double.class));
-    properties.put("baz", TypeName.get(Integer.class));
+    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    properties.add(new TestProperty("foo", TypeName.get(String.class)));
+    properties.add(new TestProperty("bar", TypeName.get(double.class)));
+    properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
     assertThat(extension.createTypeAdapter("com.test.$Foo", "com.test.Foo", properties).toString())
         .isEqualTo("" +
             "public static final class FooTypeAdapter extends com.google.gson.TypeAdapter<com.test.Foo> {\n" +
@@ -80,8 +85,11 @@ public class AutoGsonExtensionTest {
             "  @java.lang.Override\n" +
             "  public void write(com.google.gson.stream.JsonWriter jsonWriter, com.test.Foo object) throws java.io.IOException {\n" +
             "    jsonWriter.beginObject();\n" +
+            "    jsonWriter.name(\"foo\");\n" +
             "    gson.getAdapter(java.lang.String.class).write(jsonWriter, object.foo());\n" +
+            "    jsonWriter.name(\"bar\");\n" +
             "    gson.getAdapter(java.lang.Double.class).write(jsonWriter, object.bar());\n" +
+            "    jsonWriter.name(\"BAZ\");\n" +
             "    gson.getAdapter(java.lang.Integer.class).write(jsonWriter, object.baz());\n" +
             "    jsonWriter.endObject();\n" +
             "  }\n" +
@@ -98,7 +106,7 @@ public class AutoGsonExtensionTest {
             "        foo = gson.getAdapter(java.lang.String.class).read(jsonReader);\n" +
             "      } else if (\"bar\".equals(_name)) {\n" +
             "        bar = gson.getAdapter(java.lang.Double.class).read(jsonReader);\n" +
-            "      } else if (\"baz\".equals(_name)) {\n" +
+            "      } else if (\"BAZ\".equals(_name)) {\n" +
             "        baz = gson.getAdapter(java.lang.Integer.class).read(jsonReader);\n" +
             "      }\n" +
             "    }\n" +
@@ -111,30 +119,32 @@ public class AutoGsonExtensionTest {
   @Test public void createsWriteMethod() throws Exception {
     FieldSpec gsonField = FieldSpec.builder(Gson.class, "gson").build();
 
-    Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
-    properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(double.class));
-    properties.put("baz", TypeName.get(Integer.class));
+    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    properties.add(new TestProperty("foo", TypeName.get(String.class)));
+    properties.add(new TestProperty("bar", TypeName.get(double.class)));
+    properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
 
     assertThat(extension.createWriteMethod(gsonField, "com.test.Foo", properties).toString())
         .isEqualTo("" +
             "@java.lang.Override\n" +
             "public void write(com.google.gson.stream.JsonWriter jsonWriter, com.test.Foo object) throws java.io.IOException {\n" +
             "  jsonWriter.beginObject();\n" +
+            "  jsonWriter.name(\"foo\");\n" +
             "  gson.getAdapter(java.lang.String.class).write(jsonWriter, object.foo());\n" +
+            "  jsonWriter.name(\"bar\");\n" +
             "  gson.getAdapter(java.lang.Double.class).write(jsonWriter, object.bar());\n" +
+            "  jsonWriter.name(\"BAZ\");\n" +
             "  gson.getAdapter(java.lang.Integer.class).write(jsonWriter, object.baz());\n" +
             "  jsonWriter.endObject();\n" +
             "}\n");
   }
-
   @Test public void createsReadMethod() throws Exception {
     FieldSpec gsonField = FieldSpec.builder(Gson.class, "gson").build();
 
-    Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
-    properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(double.class));
-    properties.put("baz", TypeName.get(Integer.class));
+    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    properties.add(new TestProperty("foo", TypeName.get(String.class)));
+    properties.add(new TestProperty("bar", TypeName.get(double.class)));
+    properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
 
     assertThat(extension.createReadMethod(gsonField, "com.test.$Foo", "com.test.Foo", properties).toString())
         .isEqualTo("" +
@@ -150,7 +160,7 @@ public class AutoGsonExtensionTest {
             "      foo = gson.getAdapter(java.lang.String.class).read(jsonReader);\n" +
             "    } else if (\"bar\".equals(_name)) {\n" +
             "      bar = gson.getAdapter(java.lang.Double.class).read(jsonReader);\n" +
-            "    } else if (\"baz\".equals(_name)) {\n" +
+            "    } else if (\"BAZ\".equals(_name)) {\n" +
             "      baz = gson.getAdapter(java.lang.Integer.class).read(jsonReader);\n" +
             "    }\n" +
             "  }\n" +
@@ -159,62 +169,23 @@ public class AutoGsonExtensionTest {
             "}\n");
   }
 
-  /*@AutoValue*/ static class Foo {
-    Foo(String foo, Double bar, Integer baz) {
+  public static class TestProperty extends AutoGsonExtension.Property {
 
+    private String serializedName;
+
+    public TestProperty(String name, TypeName typeName) {
+      this(name, null, typeName);
     }
-    String foo() { return "foo"; }
-    Double bar() { return new Double(0); }
-    Integer baz() { return 1; }
-  }
 
-  public static FooTypeAdapterFactory typeAdapterFactory() {
-    return new FooTypeAdapterFactory();
-  }
-
-  public static final class FooTypeAdapterFactory implements TypeAdapterFactory {
-    @Override
-    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
-      if (!Foo.class.isAssignableFrom(typeToken.getRawType())) return null;
-      return (TypeAdapter<T>) new FooTypeAdapter(gson);
-    }
-  }
-
-  public static final class FooTypeAdapter extends TypeAdapter<Foo> {
-
-    Gson gson;
-
-    public FooTypeAdapter(Gson gson) {
-      this.gson = gson;
+    public TestProperty(String name, String serializedName, TypeName typeName) {
+      this.name = name;
+      this.serializedName = serializedName != null ? serializedName : name;
+      this.type = typeName;
     }
 
     @Override
-    public void write(JsonWriter jsonWriter, Foo foo) throws IOException {
-      jsonWriter.beginObject();
-      gson.getAdapter(String.class).write(jsonWriter, foo.foo());
-      gson.getAdapter(Double.class).write(jsonWriter, foo.bar());
-      gson.getAdapter(Integer.class).write(jsonWriter, foo.baz());
-      jsonWriter.endObject();
-    }
-
-    @Override
-    public Foo read(JsonReader jsonReader) throws IOException {
-      jsonReader.beginObject();
-      String foo = null;
-      Double bar = null;
-      Integer baz = null;
-      while (jsonReader.hasNext()) {
-        String name = jsonReader.nextName();
-        if ("foo".equals(name)) {
-          foo = gson.getAdapter(String.class).read(jsonReader);
-        } else if ("bar".equals(name)) {
-          bar = gson.getAdapter(Double.class).read(jsonReader);
-        } else if ("baz".equals(name)) {
-          baz = gson.getAdapter(Integer.class).read(jsonReader);
-        }
-      }
-      jsonReader.endObject();
-      return new Foo(foo, bar, baz);
+    public String serializedName() {
+      return serializedName;
     }
   }
 

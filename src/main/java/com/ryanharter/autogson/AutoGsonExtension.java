@@ -14,6 +14,7 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
+import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -30,13 +31,16 @@ import jdk.nashorn.internal.ir.debug.JSONWriter;
 import org.omg.CORBA.PUBLIC_MEMBER;
 
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.util.Elements;
 import javax.tools.JavaFileManager;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +55,30 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 @AutoService(AutoValueExtension.class)
 public class AutoGsonExtension implements AutoValueExtension {
 
+  public static class Property {
+    String name;
+    ExecutableElement element;
+    TypeName type;
+
+    public Property() {}
+
+    public Property(String name, ExecutableElement element) {
+      this.name = name;
+      this.element = element;
+
+      type = TypeName.get(element.getReturnType());
+    }
+
+    public String serializedName() {
+      SerializedName serializedName = element.getAnnotation(SerializedName.class);
+      if (serializedName != null) {
+        return serializedName.value();
+      } else {
+        return name;
+      }
+    }
+  }
+
   @Override
   public boolean applicable(Context context) {
     return true;
@@ -63,13 +91,15 @@ public class AutoGsonExtension implements AutoValueExtension {
 
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
+    List<Property> properties = readProperties(context.properties());
+
     String fqAutoValueClass = context.autoValueClass().getQualifiedName().toString();
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
     ClassName classNameClass = ClassName.get(context.packageName(), className);
-    ClassName autoValueClass = ClassName.bestGuess(fqAutoValueClass);
+    ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
-    TypeSpec typeAdapter = createTypeAdapter(className, fqAutoValueClass, types);
+    TypeSpec typeAdapter = createTypeAdapter(className, fqAutoValueClass, properties);
     TypeSpec typeAdapterFactory = createTypeAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
     MethodSpec typeAdapterFactoryMethod = createTypeAdapterFactoryMethod(typeAdapterFactory);
 
@@ -88,6 +118,14 @@ public class AutoGsonExtension implements AutoValueExtension {
 
 
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
+  }
+
+  public List<Property> readProperties(Map<String, ExecutableElement> properties) {
+    List<Property> values = new LinkedList<Property>();
+    for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
+      values.add(new Property(entry.getKey(), entry.getValue()));
+    }
+    return values;
   }
 
   MethodSpec generateConstructor(Map<String, TypeName> properties) {
@@ -110,10 +148,19 @@ public class AutoGsonExtension implements AutoValueExtension {
     return builder.build();
   }
 
-  private Map<String, TypeName> convertPropertiesToTypes(Map<String, ExecutableElement> properties) {
+  /**
+   * Converts the ExecutableElement properties to TypeName properties
+   */
+  Map<String, TypeName> convertPropertiesToTypes(Map<String, ExecutableElement> properties) {
     Map<String, TypeName> types = new LinkedHashMap<String, TypeName>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      types.put(entry.getKey(), TypeName.get(entry.getValue().getReturnType()));
+      ExecutableElement el = entry.getValue();
+      SerializedName serializedName = el.getAnnotation(SerializedName.class);
+      if (serializedName != null) {
+        types.put(serializedName.value(), TypeName.get(el.getReturnType()));
+      } else {
+        types.put(entry.getKey(), TypeName.get(el.getReturnType()));
+      }
     }
     return types;
   }
@@ -152,7 +199,7 @@ public class AutoGsonExtension implements AutoValueExtension {
         .build();
   }
 
-  public TypeSpec createTypeAdapter(String className, String autoValueClassName, Map<String, TypeName> properties) {
+  public TypeSpec createTypeAdapter(String className, String autoValueClassName, List<Property> properties) {
     ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, annotatedClass);
@@ -177,7 +224,7 @@ public class AutoGsonExtension implements AutoValueExtension {
     return classBuilder.build();
   }
 
-  public MethodSpec createWriteMethod(FieldSpec gsonField, String autoValueClassName, Map<String, TypeName> properties) {
+  public MethodSpec createWriteMethod(FieldSpec gsonField, String autoValueClassName, List<Property> properties) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
     ParameterSpec annotatedParam = ParameterSpec.builder(annotatedClass, "object").build();
@@ -189,10 +236,10 @@ public class AutoGsonExtension implements AutoValueExtension {
         .addException(IOException.class);
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
-    for (Map.Entry<String, TypeName> property : properties.entrySet()) {
+    for (Property prop : properties) {
+      writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       writeMethod.addStatement("$N.getAdapter($T.class).write($N, $N.$N())", gsonField,
-          property.getValue().isPrimitive() ? property.getValue().box() : property.getValue(),
-          jsonWriter, annotatedParam, property.getKey());
+          prop.type.isPrimitive() ? prop.type.box() : prop.type, jsonWriter, annotatedParam, prop.name);
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -200,7 +247,7 @@ public class AutoGsonExtension implements AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(FieldSpec gsonField, String className,
-                                     String autoValueClassName, Map<String, TypeName> properties) {
+                                     String autoValueClassName, List<Property> properties) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
@@ -213,10 +260,11 @@ public class AutoGsonExtension implements AutoValueExtension {
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
     // add the properties
-    List<PropertyHolder> props = new ArrayList<PropertyHolder>(properties.size());
-    for (Map.Entry<String, TypeName> prop : properties.entrySet()) {
-      FieldSpec field = FieldSpec.builder(prop.getValue(), prop.getKey()).build();
-      props.add(new PropertyHolder(prop.getKey(), prop.getValue(), field));
+    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(properties.size());
+    for (Property prop : properties) {
+      FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
+      fields.put(prop, field);
+
       readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
     }
 
@@ -226,11 +274,13 @@ public class AutoGsonExtension implements AutoValueExtension {
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
     boolean first = true;
-    for (PropertyHolder prop : props) {
-      if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.name, name);
-      else readMethod.nextControlFlow("else if ($S.equals($N))", prop.name, name);
-      readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", prop.field, gsonField,
-          prop.field.type.isPrimitive() ? prop.field.type.box() : prop.field.type, jsonReader);
+    for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
+      Property prop = entry.getKey();
+      FieldSpec field = entry.getValue();
+      if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
+      else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
+      readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", field, gsonField,
+          field.type.isPrimitive() ? field.type.box() : field.type, jsonReader);
       first = false;
     }
     readMethod.endControlFlow(); // if/else if
@@ -241,28 +291,15 @@ public class AutoGsonExtension implements AutoValueExtension {
     StringBuilder format = new StringBuilder("return new ");
     format.append(className.replaceAll("\\$", ""));
     format.append("(");
-    List<FieldSpec> args = new ArrayList<FieldSpec>(props.size());
-    for (int i = 0, n = props.size(); i < n; i++) {
-      PropertyHolder prop = props.get(i);
-      args.add(prop.field);
+    Iterator<FieldSpec> iterator = fields.values().iterator();
+    while (iterator.hasNext()) {
+      iterator.next();
       format.append("$N");
-      if (i < n - 1) format.append(", ");
+      if (iterator.hasNext()) format.append(", ");
     }
     format.append(")");
-    readMethod.addStatement(format.toString(), args.toArray());
+    readMethod.addStatement(format.toString(), fields.values().toArray());
 
     return readMethod.build();
-  }
-
-  private static class PropertyHolder {
-    String name;
-    TypeName type;
-    FieldSpec field;
-
-    public PropertyHolder(String name, TypeName type, FieldSpec field) {
-      this.name = name;
-      this.type = type;
-      this.field = field;
-    }
   }
 }
