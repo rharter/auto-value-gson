@@ -66,7 +66,7 @@ public class AutoGsonExtensionTest {
   @Test public void generatesTypeAdapter() throws Exception {
     Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
     properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(Double.class));
+    properties.put("bar", TypeName.get(double.class));
     properties.put("baz", TypeName.get(Integer.class));
     assertThat(extension.createTypeAdapter("com.test.$Foo", "com.test.Foo", properties).toString())
         .isEqualTo("" +
@@ -113,7 +113,7 @@ public class AutoGsonExtensionTest {
 
     Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
     properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(Double.class));
+    properties.put("bar", TypeName.get(double.class));
     properties.put("baz", TypeName.get(Integer.class));
 
     assertThat(extension.createWriteMethod(gsonField, "com.test.Foo", properties).toString())
@@ -133,7 +133,7 @@ public class AutoGsonExtensionTest {
 
     Map<String, TypeName> properties = new LinkedHashMap<String, TypeName>(3);
     properties.put("foo", TypeName.get(String.class));
-    properties.put("bar", TypeName.get(Double.class));
+    properties.put("bar", TypeName.get(double.class));
     properties.put("baz", TypeName.get(Integer.class));
 
     assertThat(extension.createReadMethod(gsonField, "com.test.$Foo", "com.test.Foo", properties).toString())

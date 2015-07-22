@@ -191,7 +191,8 @@ public class AutoGsonExtension implements AutoValueExtension {
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Map.Entry<String, TypeName> property : properties.entrySet()) {
       writeMethod.addStatement("$N.getAdapter($T.class).write($N, $N.$N())", gsonField,
-          property.getValue(), jsonWriter, annotatedParam, property.getKey());
+          property.getValue().isPrimitive() ? property.getValue().box() : property.getValue(),
+          jsonWriter, annotatedParam, property.getKey());
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -216,8 +217,7 @@ public class AutoGsonExtension implements AutoValueExtension {
     for (Map.Entry<String, TypeName> prop : properties.entrySet()) {
       FieldSpec field = FieldSpec.builder(prop.getValue(), prop.getKey()).build();
       props.add(new PropertyHolder(prop.getKey(), prop.getValue(), field));
-
-      readMethod.addStatement("$T $N = null", field.type, field);
+      readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -229,7 +229,8 @@ public class AutoGsonExtension implements AutoValueExtension {
     for (PropertyHolder prop : props) {
       if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.name, name);
       else readMethod.nextControlFlow("else if ($S.equals($N))", prop.name, name);
-      readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", prop.field, gsonField, prop.field.type, jsonReader);
+      readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", prop.field, gsonField,
+          prop.field.type.isPrimitive() ? prop.field.type.box() : prop.field.type, jsonReader);
       first = false;
     }
     readMethod.endControlFlow(); // if/else if
