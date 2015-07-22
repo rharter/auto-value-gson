@@ -35,7 +35,7 @@ Add a Gradle dependency:
 **Soon**
 
 ```groovy
-compile 'com.ryanharter.autogson:auto-gson:1.0-SNAPSHOT'
+compile 'com.ryanharter.autogson:auto-gson:0.1-SNAPSHOT'
 ```
 
 ## License
