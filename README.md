@@ -6,11 +6,12 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-Simply include AutoGson in your project and add the generated Serializer and Deserializer as a TypeAdapter.
+Simply include AutoGson in your project and add the generated Serializer and Deserializer as a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
   abstract String bar();
+  @SerializedName("Baz") abstract String baz();
 }
 
 final Gson gson = new GsonBuilder()
@@ -25,7 +26,6 @@ Now build your project and de/serialize your Foo.
 This wouldn't be quite complete without some added features.
 
 * Automatic registration
-* `@SerializedName` support
 * Default value support
 
 ## Download
