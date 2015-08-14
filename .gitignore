@@ -1,25 +1,12 @@
-.classpath
-.project
-.settings
-.checkstyle
-eclipsebin
-
-bin
-gen
-build
-out
-lib
-
-target
-pom.xml.*
-release.properties
-
+# IntelliJ IDEA
 .idea
 *.iml
-classes
+annotations
 
+# Gradle
 .gradle
-
-obj
+gradlew.bat
+build
+local.properties
 
 .DS_Store
