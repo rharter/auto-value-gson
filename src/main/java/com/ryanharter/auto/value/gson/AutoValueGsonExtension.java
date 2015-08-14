@@ -1,9 +1,9 @@
-package com.ryanharter.autogson;
+package com.ryanharter.auto.value.gson;
 
-import autovalue.shaded.com.google.common.common.collect.Lists;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValueExtension;
 import com.google.auto.value.processor.AutoAnnotationProcessor;
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
@@ -53,7 +53,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
  * Created by rharter on 7/20/15.
  */
 @AutoService(AutoValueExtension.class)
-public class AutoGsonExtension implements AutoValueExtension {
+public class AutoValueGsonExtension implements AutoValueExtension {
 
   public static class Property {
     String name;

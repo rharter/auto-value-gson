@@ -1,6 +1,4 @@
-package com.ryanharter.autogson;
-
-import com.google.common.reflect.TypeParameter;
+package com.ryanharter.auto.value.gson;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;

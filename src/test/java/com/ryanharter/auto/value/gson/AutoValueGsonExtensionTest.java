@@ -1,31 +1,12 @@
-package com.ryanharter.autogson;
+package com.ryanharter.auto.value.gson;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import com.google.gson.TypeAdapter;
-import com.google.gson.TypeAdapterFactory;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.junit.Test;
 
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.TypeMirror;
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 /**
  * Created by rharter on 7/20/15.
  */
-public class AutoGsonExtensionTest {
+public class AutoValueGsonExtensionTest {
 
-  AutoGsonExtension extension = new AutoGsonExtension();
+  AutoValueGsonExtension extension = new AutoValueGsonExtension();
 
   @Test public void generatesTypeAdapterFactoryMethod() throws Exception {
     TypeSpec typeAdapterFactory = TypeSpec.classBuilder("FooTypeAdapterFactory").build();
@@ -69,7 +50,7 @@ public class AutoGsonExtensionTest {
   }
 
   @Test public void generatesTypeAdapter() throws Exception {
-    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    List<AutoValueGsonExtension.Property> properties = new LinkedList<AutoValueGsonExtension.Property>();
     properties.add(new TestProperty("foo", TypeName.get(String.class)));
     properties.add(new TestProperty("bar", TypeName.get(double.class)));
     properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
@@ -119,7 +100,7 @@ public class AutoGsonExtensionTest {
   @Test public void createsWriteMethod() throws Exception {
     FieldSpec gsonField = FieldSpec.builder(Gson.class, "gson").build();
 
-    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    List<AutoValueGsonExtension.Property> properties = new LinkedList<AutoValueGsonExtension.Property>();
     properties.add(new TestProperty("foo", TypeName.get(String.class)));
     properties.add(new TestProperty("bar", TypeName.get(double.class)));
     properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
@@ -141,7 +122,7 @@ public class AutoGsonExtensionTest {
   @Test public void createsReadMethod() throws Exception {
     FieldSpec gsonField = FieldSpec.builder(Gson.class, "gson").build();
 
-    List<AutoGsonExtension.Property> properties = new LinkedList<AutoGsonExtension.Property>();
+    List<AutoValueGsonExtension.Property> properties = new LinkedList<AutoValueGsonExtension.Property>();
     properties.add(new TestProperty("foo", TypeName.get(String.class)));
     properties.add(new TestProperty("bar", TypeName.get(double.class)));
     properties.add(new TestProperty("baz", "BAZ", TypeName.get(Integer.class)));
@@ -169,7 +150,7 @@ public class AutoGsonExtensionTest {
             "}\n");
   }
 
-  public static class TestProperty extends AutoGsonExtension.Property {
+  public static class TestProperty extends AutoValueGsonExtension.Property {
 
     private String serializedName;
 

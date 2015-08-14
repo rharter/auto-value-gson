@@ -1,6 +1,6 @@
-# AutoGson
+# AutoValue: Gson Extension
 
-An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Gson](https://github.com/google/gson) Serializer and Deserializer for each AutoValue annotated object.
+An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Gson](https://github.com/google/gson) TypeAdapterFactory for each AutoValue annotated object.
 
 **Note**: This is a very early version that won't work with the released AutoValue until a [PR](https://github.com/google/auto/pull/237) has been merged.
 
@@ -12,10 +12,14 @@ Simply include AutoGson in your project and add the generated Serializer and Des
 @AutoValue public abstract class Foo {
   abstract String bar();
   @SerializedName("Baz") abstract String baz();
+
+  public static TypeAdapterFactory typeAdapterFactory() {
+    return AutoValue_Foo.typeAdapterFactory();
+  }
 }
 
 final Gson gson = new GsonBuilder()
-  .registerTypeAdapterFactory(Foo.class, AutoValue_Foo.typeAdapterFactory())
+  .registerTypeAdapterFactory(Foo.class, Foo.typeAdapterFactory())
   .create();
 ```
 
@@ -32,10 +36,8 @@ This wouldn't be quite complete without some added features.
 
 Add a Gradle dependency:
 
-**Soon**
-
 ```groovy
-compile 'com.ryanharter.autogson:auto-gson:0.1-SNAPSHOT'
+compile 'com.ryanharter.auto.value:auto-value-gson:0.1-SNAPSHOT'
 ```
 
 ## License

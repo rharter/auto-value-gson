@@ -1,15 +1,14 @@
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
-sourceCompatibility = 1.6
-targetCompatibility = 1.6
-
-group 'com.ryanharter.autogson'
-version '0.1-SNAPSHOT'
-def artifact = 'auto-gson'
+group GROUP
+version VERSION_NAME
+def artifact = POM_ARTIFACT_ID
 
 repositories {
-    mavenLocal()
+    maven {
+        url 'http://oss.sonatype.org/content/repositories/snapshots'
+    }
     mavenCentral()
 }
 
@@ -17,11 +16,11 @@ dependencies {
     compile 'com.squareup:javapoet:1.1.0'
     compile 'com.google.auto.value:auto-value:1.2-SNAPSHOT'
     compile 'com.google.auto.service:auto-service:1.0-rc2'
-    compile 'com.google.auto:auto-common:0.4'
+    compile 'com.google.auto:auto-common:1.0-SNAPSHOT'
     compile 'com.google.code.gson:gson:2.3.1'
 
     testCompile 'junit:junit:4.11'
-    testCompile 'com.google.truth:truth:jar:0.27'
+    testCompile 'com.google.truth:truth:0.27'
 }
 
 def isReleaseBuild() {
@@ -38,6 +37,14 @@ def getSnapshotRepositoryUrl() {
             : "https://oss.sonatype.org/content/repositories/snapshots/"
 }
 
+def getRepositoryUsername() {
+    return hasProperty('SONATYPE_NEXUS_USERNAME') ? SONATYPE_NEXUS_USERNAME : ""
+}
+
+def getRepositoryPassword() {
+    return hasProperty('SONATYPE_NEXUS_PASSWORD') ? SONATYPE_NEXUS_PASSWORD : ""
+}
+
 publishing {
     publications {
         processor(MavenPublication) {
@@ -52,8 +59,8 @@ publishing {
         maven {
             url isReleaseBuild() ? getReleaseRepositoryUrl() : getSnapshotRepositoryUrl()
             credentials() {
-                username NEXUS_USERNAME
-                password NEXUS_PASSWORD
+                username getRepositoryUsername()
+                password getRepositoryPassword()
             }
         }
     }
