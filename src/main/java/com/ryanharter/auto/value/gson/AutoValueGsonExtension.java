@@ -6,7 +6,6 @@ import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
-import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -139,12 +138,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     Map<String, TypeName> types = new LinkedHashMap<String, TypeName>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       ExecutableElement el = entry.getValue();
-      SerializedName serializedName = el.getAnnotation(SerializedName.class);
-      if (serializedName != null) {
-        types.put(serializedName.value(), TypeName.get(el.getReturnType()));
-      } else {
-        types.put(entry.getKey(), TypeName.get(el.getReturnType()));
-      }
+      types.put(entry.getKey(), TypeName.get(el.getReturnType()));
     }
     return types;
   }
