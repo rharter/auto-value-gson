@@ -1,7 +1,7 @@
 package com.ryanharter.auto.value.gson;
 
 import com.google.auto.service.AutoService;
-import com.google.auto.value.AutoValueExtension;
+import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -19,7 +19,6 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
-import javax.lang.model.element.ExecutableElement;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -27,14 +26,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.lang.model.element.ExecutableElement;
+
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.ABSTRACT;
 
-/**
- * Created by rharter on 7/20/15.
- */
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension implements AutoValueExtension {
 
@@ -43,7 +41,8 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     ExecutableElement element;
     TypeName type;
 
-    public Property() {}
+    public Property() {
+    }
 
     public Property(String name, ExecutableElement element) {
       this.name = name;
@@ -225,7 +224,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(FieldSpec gsonField, String className,
-                                     String autoValueClassName, List<Property> properties) {
+      String autoValueClassName, List<Property> properties) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     ClassName annotatedClass = ClassName.bestGuess(autoValueClassName);
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
