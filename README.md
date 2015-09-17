@@ -45,8 +45,10 @@ This wouldn't be quite complete without some added features.
 Add a Gradle dependency:
 
 ```groovy
-compile 'com.ryanharter.auto.value:auto-value-gson:0.1-SNAPSHOT'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.1-SNAPSHOT'
 ```
+
+(Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
 
 ## License
 
