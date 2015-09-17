@@ -8,8 +8,6 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-[![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg)](https://travis-ci.org/rharter/auto-value-gson)
-
 Simply include AutoGson in your project and add the generated Serializer and Deserializer as a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
 
 ```java
