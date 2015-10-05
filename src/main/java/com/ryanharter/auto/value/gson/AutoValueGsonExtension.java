@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -20,12 +21,14 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -40,6 +43,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     String name;
     ExecutableElement element;
     TypeName type;
+    ImmutableSet<String> annotations;
 
     public Property() {
     }
@@ -49,6 +53,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
+      annotations = buildAnnotations(element);
     }
 
     public String serializedName() {
@@ -58,6 +63,21 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       } else {
         return name;
       }
+    }
+
+    public Boolean nullable() {
+      return annotations.contains("Nullable");
+    }
+
+    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
+      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+
+      List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+      for (AnnotationMirror annotation : annotations) {
+        builder.add(annotation.getAnnotationType().asElement().getSimpleName().toString());
+      }
+
+      return builder.build();
     }
   }
 
@@ -214,9 +234,17 @@ public class AutoValueGsonExtension implements AutoValueExtension {
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
+      if (prop.nullable()) {
+        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.name);
+      }
+
       writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       writeMethod.addStatement("$N.getAdapter($T.class).write($N, $N.$N())", gsonField,
           prop.type.isPrimitive() ? prop.type.box() : prop.type, jsonWriter, annotatedParam, prop.name);
+
+      if (prop.nullable()) {
+        writeMethod.endControlFlow();
+      }
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
