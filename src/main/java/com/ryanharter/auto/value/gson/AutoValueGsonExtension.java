@@ -9,6 +9,7 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
@@ -262,6 +263,8 @@ public class AutoValueGsonExtension implements AutoValueExtension {
         .addParameter(jsonReader)
         .addException(IOException.class);
 
+    ClassName token = ClassName.get(JsonToken.NULL.getClass());
+
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
     // add the properties
@@ -278,15 +281,16 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
-    boolean first = true;
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.skipValue()", jsonReader);
+
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
-      else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
+
+      readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
       readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", field, gsonField,
           field.type.isPrimitive() ? field.type.box() : field.type, jsonReader);
-      first = false;
     }
     readMethod.endControlFlow(); // if/else if
     readMethod.endControlFlow(); // while
