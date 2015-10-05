@@ -2,12 +2,14 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
@@ -20,12 +22,14 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -40,6 +44,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     String name;
     ExecutableElement element;
     TypeName type;
+    ImmutableSet<String> annotations;
 
     public Property() {
     }
@@ -49,6 +54,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
+      annotations = buildAnnotations(element);
     }
 
     public String serializedName() {
@@ -58,6 +64,21 @@ public class AutoValueGsonExtension implements AutoValueExtension {
       } else {
         return name;
       }
+    }
+
+    public Boolean nullable() {
+      return annotations.contains("Nullable");
+    }
+
+    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
+      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+
+      List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
+      for (AnnotationMirror annotation : annotations) {
+        builder.add(annotation.getAnnotationType().asElement().getSimpleName().toString());
+      }
+
+      return builder.build();
     }
   }
 
@@ -214,9 +235,17 @@ public class AutoValueGsonExtension implements AutoValueExtension {
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
+      if (prop.nullable()) {
+        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.name);
+      }
+
       writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       writeMethod.addStatement("$N.getAdapter($T.class).write($N, $N.$N())", gsonField,
           prop.type.isPrimitive() ? prop.type.box() : prop.type, jsonWriter, annotatedParam, prop.name);
+
+      if (prop.nullable()) {
+        writeMethod.endControlFlow();
+      }
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -234,6 +263,8 @@ public class AutoValueGsonExtension implements AutoValueExtension {
         .addParameter(jsonReader)
         .addException(IOException.class);
 
+    ClassName token = ClassName.get(JsonToken.NULL.getClass());
+
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
     // add the properties
@@ -250,15 +281,16 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
-    boolean first = true;
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.skipValue()", jsonReader);
+
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      if (first) readMethod.beginControlFlow("if ($S.equals($N))", prop.serializedName(), name);
-      else readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
+
+      readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
       readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", field, gsonField,
           field.type.isPrimitive() ? field.type.box() : field.type, jsonReader);
-      first = false;
     }
     readMethod.endControlFlow(); // if/else if
     readMethod.endControlFlow(); // while
