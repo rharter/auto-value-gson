@@ -281,18 +281,30 @@ public class AutoValueGsonExtension implements AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
+    // check if JSON field value is NULL
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
     readMethod.addStatement("$N.skipValue()", jsonReader);
+    readMethod.addStatement("continue");
+    readMethod.endControlFlow();
 
+    readMethod.beginControlFlow("switch ($N)", name);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      readMethod.nextControlFlow("else if ($S.equals($N))", prop.serializedName(), name);
+      readMethod.beginControlFlow("case $S:", prop.serializedName());
       readMethod.addStatement("$N = $N.getAdapter($T.class).read($N)", field, gsonField,
           field.type.isPrimitive() ? field.type.box() : field.type, jsonReader);
+      readMethod.addStatement("break");
+      readMethod.endControlFlow();
     }
-    readMethod.endControlFlow(); // if/else if
+
+    // skip value if it's unrecognized
+    readMethod.beginControlFlow("default:");
+    readMethod.addStatement("$N.skipValue()", jsonReader);
+    readMethod.endControlFlow();
+
+    readMethod.endControlFlow(); // switch
     readMethod.endControlFlow(); // while
 
     readMethod.addStatement("$N.endObject()", jsonReader);
