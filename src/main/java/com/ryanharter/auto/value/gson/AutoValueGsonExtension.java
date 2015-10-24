@@ -22,7 +22,6 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -38,7 +37,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
-public class AutoValueGsonExtension implements AutoValueExtension {
+public class AutoValueGsonExtension extends AutoValueExtension {
 
   public static class Property {
     String name;
@@ -86,12 +85,7 @@ public class AutoValueGsonExtension implements AutoValueExtension {
   public boolean applicable(Context context) {
     return true;
   }
-
-  @Override
-  public boolean mustBeAtEnd(Context context) {
-    return false;
-  }
-
+  
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
