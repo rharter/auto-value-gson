@@ -61,7 +61,18 @@ public class AutoValueGsonExtensionTest {
         // Parametrized type, single parameter
         + "public abstract Set<String> g();\n"
         // Nested parameterized type
-        + "public abstract Map<String, Set<String>> h();\n"
+        + "public abstract Map<String, Set<String>> h();\n" +
+        "  @AutoValue.Builder public static abstract class Builder {\n" +
+        "    public abstract Builder a(String a);\n" +
+        "    public abstract Builder b(int[] b);\n" +
+        "    public abstract Builder c(int c);\n" +
+        "    public abstract Builder d(String d);\n" +
+        "    public abstract Builder e(String e);\n" +
+        "    public abstract Builder f(Map<String, Number> f);\n" +
+        "    public abstract Builder g(Set<String> g);\n" +
+        "    public abstract Builder h(Map<String, Set<String>> h);\n" +
+        "    public abstract Test build();\n" +
+        "  }\n"
         + "}\n"
     );
 
