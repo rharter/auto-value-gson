@@ -18,23 +18,10 @@ import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
  */
 public class AutoValueGsonExtensionTest {
 
-  private JavaFileObject serializedName, nullable;
+  private JavaFileObject nullable;
 
   @Before
   public void setup() {
-    serializedName = JavaFileObjects.forSourceString("com.ryanharter.auto.value.gson.SerializedName", ""
-        + "package com.ryanharter.auto.value.gson;\n"
-        + "import java.lang.annotation.Retention;\n"
-        + "import java.lang.annotation.Target;\n"
-        + "import static java.lang.annotation.ElementType.METHOD;\n"
-        + "import static java.lang.annotation.ElementType.PARAMETER;\n"
-        + "import static java.lang.annotation.ElementType.FIELD;\n"
-        + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
-        + "@Retention(SOURCE)\n"
-        + "@Target({METHOD, PARAMETER, FIELD})\n"
-        + "public @interface SerializedName {\n"
-        + "  String value();\n"
-        + "}");
     nullable = JavaFileObjects.forSourceString("com.ryanharter.auto.value.gson.Nullable", ""
         + "package com.ryanharter.auto.value.gson;\n"
         + "import java.lang.annotation.Retention;\n"
@@ -53,7 +40,7 @@ public class AutoValueGsonExtensionTest {
   public void simple() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
-        + "import com.ryanharter.auto.value.gson.SerializedName;\n"
+        + "import com.google.gson.annotations.SerializedName;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.google.auto.value.AutoValue;\n"
         + "import java.util.Map;\n"
@@ -218,7 +205,7 @@ public class AutoValueGsonExtensionTest {
     );
 
     assertAbout(javaSources())
-        .that(Arrays.asList(serializedName, nullable, source))
+        .that(Arrays.asList(nullable, source))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
