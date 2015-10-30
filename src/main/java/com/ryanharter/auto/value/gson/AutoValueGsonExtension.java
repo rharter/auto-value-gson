@@ -212,22 +212,22 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueClassName);
 
-
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
+    ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
             .addModifiers(PUBLIC)
-            .addParameter(Gson.class, "gson");
+            .addParameter(gsonParam);
 
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
       if (entry.getKey().type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = gson.getAdapter($L)", field,
+        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
             makeType((ParameterizedTypeName) prop.type));
       } else {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-        constructor.addStatement("this.$N = gson.getAdapter($T.class)", field, type);
+        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
       }
     }
 
