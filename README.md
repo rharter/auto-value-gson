@@ -21,7 +21,7 @@ Simply include AutoGson in your project and add the generated Serializer and Des
 }
 
 final Gson gson = new GsonBuilder()
-  .registerTypeAdapterFactory(Foo.class, Foo.typeAdapterFactory())
+  .registerTypeAdapterFactory(Foo.typeAdapterFactory())
   .create();
 ```
 
