@@ -1,7 +1,8 @@
-import org.gradle.internal.jvm.Jvm
-
 apply plugin: 'java'
 apply plugin: 'maven-publish'
+
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
 
 repositories {
     maven {
@@ -20,8 +21,7 @@ dependencies {
     testCompile 'junit:junit:4.11'
     testCompile 'com.google.truth:truth:0.27'
     testCompile 'com.google.testing.compile:compile-testing:0.7'
-    testCompile files(Jvm.current().getToolsJar())
+    testCompile files(org.gradle.internal.jvm.Jvm.current().getToolsJar())
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
-
