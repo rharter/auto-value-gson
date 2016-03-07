@@ -299,15 +299,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     for (Property prop : adapters.keySet()) {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);
-      if(field.type.isPrimitive()){
+      if (field.type.isPrimitive()) {
         String defaultValue = getDefaultPrimitiveValue(field.type);
-        if(defaultValue != null) {
+        if (defaultValue != null) {
           readMethod.addStatement("$T $N = $L", field.type, field, defaultValue);
-        }else {
+        } else {
           readMethod.addStatement("$T $N = $T.valueOf(null)", field.type, field, field.type.box());
         }
-
-      }else {
+      } else {
         readMethod.addStatement("$T $N = null", field.type, field);
       }
     }
@@ -368,9 +367,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     String valueString = null;
     try {
       Class<?> primitiveClass = Primitives.unwrap(Class.forName(type.box().toString()));
-      if(primitiveClass != null) {
+      if (primitiveClass != null) {
         Object defaultValue = Defaults.defaultValue(primitiveClass);
-        if(defaultValue != null) {
+        if (defaultValue != null) {
           valueString = defaultValue.toString();
           if (!Strings.isNullOrEmpty(valueString)) {
             switch (type.toString()) {
