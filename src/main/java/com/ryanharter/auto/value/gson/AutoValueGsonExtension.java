@@ -359,6 +359,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return readMethod.build();
   }
 
+  /**
+   *
+   * @param type
+   * @return the default primitive value as a String.  Returns null if unable to determine default value
+     */
   private String getDefaultPrimitiveValue(TypeName type) {
     String valueString = null;
     try {
@@ -377,13 +382,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
                 break;
               case "long":
                 valueString = valueString + "L";
+                break;
             }
           }
         }
       }
-
-    } catch (Exception e) {
+    } catch (ClassNotFoundException ignored) {
+      //Swallow and return null
     }
+
     return valueString;
   }
 
