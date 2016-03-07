@@ -158,7 +158,7 @@ public class AutoValueGsonExtensionTest {
         + "      jsonReader.beginObject();\n"
         + "      String a = null;\n"
         + "      int[] b = null;\n"
-        + "      Integer c = null;\n"
+        + "      int c = 0;\n"
         + "      String d = null;\n"
         + "      String e = null;\n"
         + "      Map<String, Number> f = null;\n"
