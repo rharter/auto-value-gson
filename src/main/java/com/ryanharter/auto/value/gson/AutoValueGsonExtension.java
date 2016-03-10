@@ -2,9 +2,12 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.common.base.Defaults;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
@@ -296,8 +299,16 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     for (Property prop : adapters.keySet()) {
       FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
       fields.put(prop, field);
-
-      readMethod.addStatement("$T $N = null", field.type.isPrimitive() ? field.type.box() : field.type, field);
+      if (field.type.isPrimitive()) {
+        String defaultValue = getDefaultPrimitiveValue(field.type);
+        if (defaultValue != null) {
+          readMethod.addStatement("$T $N = $L", field.type, field, defaultValue);
+        } else {
+          readMethod.addStatement("$T $N = $T.valueOf(null)", field.type, field, field.type.box());
+        }
+      } else {
+        readMethod.addStatement("$T $N = null", field.type, field);
+      }
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -345,6 +356,41 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement(format.toString(), fields.values().toArray());
 
     return readMethod.build();
+  }
+
+  /**
+   *
+   * @param type
+   * @return the default primitive value as a String.  Returns null if unable to determine default value
+     */
+  private String getDefaultPrimitiveValue(TypeName type) {
+    String valueString = null;
+    try {
+      Class<?> primitiveClass = Primitives.unwrap(Class.forName(type.box().toString()));
+      if (primitiveClass != null) {
+        Object defaultValue = Defaults.defaultValue(primitiveClass);
+        if (defaultValue != null) {
+          valueString = defaultValue.toString();
+          if (!Strings.isNullOrEmpty(valueString)) {
+            switch (type.toString()) {
+              case "double":
+                valueString = valueString + "d";
+                break;
+              case "float":
+                valueString = valueString + "f";
+                break;
+              case "long":
+                valueString = valueString + "L";
+                break;
+            }
+          }
+        }
+      }
+    } catch (ClassNotFoundException ignored) {
+      //Swallow and return null
+    }
+
+    return valueString;
   }
 
   private CodeBlock makeType(ParameterizedTypeName type) {
