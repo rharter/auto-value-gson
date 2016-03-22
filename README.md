@@ -4,11 +4,9 @@
 
 An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Gson](https://github.com/google/gson) TypeAdapterFactory for each AutoValue annotated object.
 
-**Note**: This is a very early version that won't work with the released AutoValue until a [PR](https://github.com/google/auto/pull/237) has been merged.
-
 ## Usage
 
-Simply include AutoGson in your project and add the generated Serializer and Deserializer as a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
+Simply include auto-value-gson in your project and add the generated Serializer and Deserializer as a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
@@ -39,7 +37,7 @@ This wouldn't be quite complete without some added features.
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.2-SNAPSHOT'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.2'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
