@@ -11,6 +11,7 @@ import java.util.Arrays;
 import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 /**
@@ -217,6 +218,102 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+
+  @Test public void propertyMethodReferencedWithPrefix() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  public abstract String getName();\n"
+        + "  public abstract boolean isAwesome();\n"
+        + "}"
+    );
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.TypeAdapterFactory;\n"
+        + "import com.google.gson.reflect.TypeToken;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import com.google.gson.stream.JsonToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Boolean;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "\n"
+        + "final class AutoValue_Test extends $AutoValue_Test {\n"
+        + "  AutoValue_Test(String name, boolean awesome) {\n"
+        + "    super(name, awesome);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static TestTypeAdapterFactory typeAdapterFactory() {\n"
+        + "    return new TestTypeAdapterFactory();\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class TestTypeAdapterFactory implements TypeAdapterFactory {\n"
+        + "    @Override\n"
+        + "    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {\n"
+        + "      if (!Test.class.isAssignableFrom(typeToken.getRawType())) return null;\n"
+        + "      return (TypeAdapter<T>) new TestTypeAdapter(gson);\n"
+        + "    }\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class TestTypeAdapter extends TypeAdapter<Test> {\n"
+        + "    private final TypeAdapter<String> nameAdapter;\n"
+        + "    private final TypeAdapter<Boolean> awesomeAdapter;\n"
+        + "    public TestTypeAdapter(Gson gson) {\n"
+        + "      this.nameAdapter = gson.getAdapter(String.class);\n"
+        + "      this.awesomeAdapter = gson.getAdapter(Boolean.class);\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
+        + "      jsonWriter.beginObject();\n"
+        + "      jsonWriter.name(\"name\");\n"
+        + "      nameAdapter.write(jsonWriter, object.getName());\n"
+        + "      jsonWriter.name(\"awesome\");\n"
+        + "      awesomeAdapter.write(jsonWriter, object.isAwesome());\n"
+        + "      jsonWriter.endObject();\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public Test read(JsonReader jsonReader) throws IOException {\n"
+        + "      jsonReader.beginObject();\n"
+        + "      String name = null;\n"
+        + "      boolean awesome = false;\n"
+        + "      while (jsonReader.hasNext()) {\n"
+        + "        String _name = jsonReader.nextName();\n"
+        + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "          jsonReader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (_name) {\n"
+        + "          case \"name\": {\n"
+        + "            name = nameAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"awesome\": {\n"
+        + "            awesome = awesomeAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            jsonReader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      jsonReader.endObject();\n"
+        + "      return new AutoValue_Test(name, awesome);\n"
+        + "    }\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSource())
+        .that(source)
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()

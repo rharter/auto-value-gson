@@ -47,16 +47,15 @@ import static javax.lang.model.element.Modifier.STATIC;
 public class AutoValueGsonExtension extends AutoValueExtension {
 
   public static class Property {
-    String name;
-    ExecutableElement element;
-    TypeName type;
-    ImmutableSet<String> annotations;
+    final String methodName;
+    final String humanName;
+    final ExecutableElement element;
+    final TypeName type;
+    final ImmutableSet<String> annotations;
 
-    public Property() {
-    }
-
-    public Property(String name, ExecutableElement element) {
-      this.name = name;
+    public Property(String humanName, ExecutableElement element) {
+      this.methodName = element.getSimpleName().toString();
+      this.humanName = humanName;
       this.element = element;
 
       type = TypeName.get(element.getReturnType());
@@ -68,7 +67,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (serializedName != null) {
         return serializedName.value();
       } else {
-        return name;
+        return humanName;
       }
     }
 
@@ -139,7 +138,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
       fields.put(property,
-              FieldSpec.builder(adp, property.name + "Adapter", PRIVATE, FINAL).build());
+              FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
     }
 
     return fields.build();
@@ -265,13 +264,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       FieldSpec field = entry.getValue();
 
       if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.name);
+        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.methodName);
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.name);
+        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
         writeMethod.endControlFlow();
       } else {
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.name);
+        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
       }
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
@@ -297,7 +296,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
     for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, prop.name).build();
+      FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
       fields.put(prop, field);
       if (field.type.isPrimitive()) {
         String defaultValue = getDefaultPrimitiveValue(field.type);
