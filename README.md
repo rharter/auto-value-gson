@@ -37,7 +37,7 @@ This wouldn't be quite complete without some added features.
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.2'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.2.1'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
