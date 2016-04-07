@@ -20,7 +20,7 @@ dependencies {
 
     testCompile 'junit:junit:4.11'
     testCompile 'com.google.truth:truth:0.27'
-    testCompile 'com.google.testing.compile:compile-testing:0.7'
+    testCompile 'com.google.testing.compile:compile-testing:0.9'
     testCompile files(org.gradle.internal.jvm.Jvm.current().getToolsJar())
 }
 

@@ -1,6 +1,7 @@
 package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
+import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
@@ -298,5 +299,138 @@ public class AutoValueGsonExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test public void generatesNothingWithoutTypeAdapterMethod() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  public abstract String a();\n"
+        + "  public abstract boolean b();\n"
+        + "}"
+    );
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
+        + "package test;\n"
+        + "\n"
+        + "import javax.annotation.Generated;\n"
+        + "\n"
+        + "@Generated(\"com.google.auto.value.processor.AutoValueProcessor\")\n"
+        + " final class AutoValue_Test extends Test {\n"
+        + "\n"
+        + "  private final String a;\n"
+        + "  private final boolean b;\n"
+        + "\n"
+        + "  AutoValue_Test(\n"
+        + "      String a,\n"
+        + "      boolean b) {\n"
+        + "    if (a == null) {\n"
+        + "      throw new NullPointerException(\"Null a\");\n"
+        + "    }\n"
+        + "    this.a = a;\n"
+        + "    this.b = b;\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public String a() {\n"
+        + "    return a;\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public boolean b() {\n"
+        + "    return b;\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public String toString() {\n"
+        + "    return \"Test{\"\n"
+        + "        + \"a=\" + a + \", \"\n"
+        + "        + \"b=\" + b\n"
+        + "        + \"}\";\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public boolean equals(Object o) {\n"
+        + "    if (o == this) {\n"
+        + "      return true;\n"
+        + "    }\n"
+        + "    if (o instanceof Test) {\n"
+        + "      Test that = (Test) o;\n"
+        + "      return (this.a.equals(that.a()))\n"
+        + "           && (this.b == that.b());\n"
+        + "    }\n"
+        + "    return false;\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public int hashCode() {\n"
+        + "    int h = 1;\n"
+        + "    h *= 1000003;\n"
+        + "    h ^= this.a.hashCode();\n"
+        + "    h *= 1000003;\n"
+        + "    h ^= this.b ? 1231 : 1237;\n"
+        + "    return h;\n"
+        + "  }\n"
+        + "\n"
+        + "}");
+
+    assertAbout(javaSource())
+        .that(source)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .withWarningCount(2)
+        .and()
+        .generatesSources(expected);
+  }
+
+  @Test public void emitsWarningForWrongTypeAdapterTypeArgument() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static TypeAdapter<Bar> typeAdapter(Gson gson) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  public abstract String a();\n"
+        + "  public abstract boolean b();\n"
+        + "}"
+    );
+
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
+        + "package test;\n"
+        + "public class Bar {\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(ImmutableSet.of(source1, source2))
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .withWarningContaining("Found public static method returning TypeAdapter<test.Bar> on "
+            + "test.Foo class. Skipping GsonTypeAdapter generation.");
+  }
+
+  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static TypeAdapter typeAdapter(Gson gson) {\n"
+        + "    return null;"
+        + "  }\n"
+        + "  public abstract String a();\n"
+        + "  public abstract boolean b();\n"
+        + "}"
+    );
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .withWarningContaining("Found public static method returning TypeAdapter with no type "
+            + "arguments, skipping GsonTypeAdapter generation.");
   }
 }
