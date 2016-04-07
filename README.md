@@ -28,6 +28,7 @@ public class AutoValueTypeAdapterFactory extends TypeAdapterFactory {
     } else if (rawType.equals(Bar.class)) {
       return new Bar.typeAdapter(gson);
     }
+    return null;
   }
 }
 
