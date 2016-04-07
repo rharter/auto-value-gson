@@ -2,13 +2,10 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.testing.compile.JavaFileObjects;
-
+import java.util.Arrays;
+import javax.tools.JavaFileObject;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.Arrays;
-
-import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -44,9 +41,14 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.annotations.SerializedName;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
         + "@AutoValue public abstract class Test {\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
+        + "  }\n"
         // Reference type
         + "public abstract String a();\n"
         // Array type
@@ -82,7 +84,6 @@ public class AutoValueGsonExtensionTest {
         + "\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "import com.google.gson.TypeAdapterFactory;\n"
         + "import com.google.gson.reflect.TypeToken;\n"
         + "import com.google.gson.stream.JsonReader;\n"
         + "import com.google.gson.stream.JsonToken;\n"
@@ -100,19 +101,7 @@ public class AutoValueGsonExtensionTest {
         + "    super(a, b, c, d, e, f, g, h);\n"
         + "  }\n"
         + "\n"
-        + "  public static TestTypeAdapterFactory typeAdapterFactory() {\n"
-        + "    return new TestTypeAdapterFactory();\n"
-        + "  }\n"
-        + "\n"
-        + "  public static final class TestTypeAdapterFactory implements TypeAdapterFactory {\n"
-        + "    @Override\n"
-        + "    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {\n"
-        + "      if (!Test.class.isAssignableFrom(typeToken.getRawType())) return null;\n"
-        + "      return (TypeAdapter<T>) new TestTypeAdapter(gson);\n"
-        + "    }\n"
-        + "  }\n"
-        + "\n"
-        + "  public static final class TestTypeAdapter extends TypeAdapter<Test> {\n"
+        + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
         + "    private final TypeAdapter<String> aAdapter;\n"
         + "    private final TypeAdapter<int[]> bAdapter;\n"
         + "    private final TypeAdapter<Integer> cAdapter;\n"
@@ -121,7 +110,7 @@ public class AutoValueGsonExtensionTest {
         + "    private final TypeAdapter<Map<String, Number>> fAdapter;\n"
         + "    private final TypeAdapter<Set<String>> gAdapter;\n"
         + "    private final TypeAdapter<Map<String, Set<String>>> hAdapter;\n"
-        + "    public TestTypeAdapter(Gson gson) {\n"
+        + "    public GsonTypeAdapter(Gson gson) {\n"
         + "      this.aAdapter = gson.getAdapter(String.class);\n"
         + "      this.bAdapter = gson.getAdapter(int[].class);\n"
         + "      this.cAdapter = gson.getAdapter(Integer.class);\n"
@@ -228,7 +217,12 @@ public class AutoValueGsonExtensionTest {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
         + "@AutoValue public abstract class Test {\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
+        + "  }\n"
         + "  public abstract String getName();\n"
         + "  public abstract boolean isAwesome();\n"
         + "}"
@@ -238,8 +232,6 @@ public class AutoValueGsonExtensionTest {
         + "\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "import com.google.gson.TypeAdapterFactory;\n"
-        + "import com.google.gson.reflect.TypeToken;\n"
         + "import com.google.gson.stream.JsonReader;\n"
         + "import com.google.gson.stream.JsonToken;\n"
         + "import com.google.gson.stream.JsonWriter;\n"
@@ -253,19 +245,7 @@ public class AutoValueGsonExtensionTest {
         + "    super(name, awesome);\n"
         + "  }\n"
         + "\n"
-        + "  public static TestTypeAdapterFactory typeAdapterFactory() {\n"
-        + "    return new TestTypeAdapterFactory();\n"
-        + "  }\n"
-        + "\n"
-        + "  public static final class TestTypeAdapterFactory implements TypeAdapterFactory {\n"
-        + "    @Override\n"
-        + "    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {\n"
-        + "      if (!Test.class.isAssignableFrom(typeToken.getRawType())) return null;\n"
-        + "      return (TypeAdapter<T>) new TestTypeAdapter(gson);\n"
-        + "    }\n"
-        + "  }\n"
-        + "\n"
-        + "  public static final class TestTypeAdapter extends TypeAdapter<Test> {\n"
+        + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
         + "    private final TypeAdapter<String> nameAdapter;\n"
         + "    private final TypeAdapter<Boolean> awesomeAdapter;\n"
         + "    public TestTypeAdapter(Gson gson) {\n"
