@@ -10,7 +10,6 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
-import com.google.gson.TypeAdapterFactory;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
@@ -26,16 +25,20 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
+import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
+import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -89,9 +92,48 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   @Override
   public boolean applicable(Context context) {
-    return true;
+    // check that the class contains a public static method returning a TypeAdapter
+    TypeElement type = context.autoValueClass();
+    ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
+        ClassName.get(TypeAdapter.class), TypeName.get(type.asType()));
+    TypeName returnedTypeAdapter = null;
+    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
+      if (method.getModifiers().contains(Modifier.STATIC)
+          && method.getModifiers().contains(Modifier.PUBLIC)) {
+        TypeMirror rType = method.getReturnType();
+        TypeName returnType = TypeName.get(rType);
+        if (returnType.equals(typeAdapterType)) {
+          return true;
+        }
+
+        if (returnType.equals(typeAdapterType.rawType)
+          || (returnType instanceof ParameterizedTypeName
+            && ((ParameterizedTypeName) returnType).rawType.equals(typeAdapterType.rawType))) {
+          returnedTypeAdapter = returnType;
+        }
+      }
+    }
+
+    if (returnedTypeAdapter == null) {
+      return false;
+    }
+
+    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
+    Messager messager = context.processingEnvironment().getMessager();
+    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
+      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
+      TypeName argument = paramReturnType.typeArguments.get(0);
+      messager.printMessage(Diagnostic.Kind.WARNING,
+          String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+              + "Skipping GsonTypeAdapter generation.", argument, type));
+    } else {
+      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+    }
+
+    return false;
   }
-  
+
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
     List<Property> properties = readProperties(context.properties());
@@ -102,15 +144,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName autoValueClass = ClassName.bestGuess(context.autoValueClass().getQualifiedName().toString());
 
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
-    TypeSpec typeAdapterFactory = createTypeAdapterFactory(classNameClass, autoValueClass, typeAdapter, types);
-    MethodSpec typeAdapterFactoryMethod = createTypeAdapterFactoryMethod(typeAdapterFactory);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
         .superclass(TypeVariableName.get(classToExtend))
-        .addType(typeAdapterFactory)
         .addType(typeAdapter)
-        .addMethod(generateConstructor(types))
-        .addMethod(typeAdapterFactoryMethod);
+        .addMethod(generateConstructor(types));
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
@@ -176,40 +214,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public MethodSpec createTypeAdapterFactoryMethod(TypeSpec typeAdapterFactory) {
-    return MethodSpec.methodBuilder("typeAdapterFactory")
-        .addModifiers(PUBLIC, STATIC)
-        .returns(ClassName.bestGuess(typeAdapterFactory.name))
-        .addStatement("return new $N()", typeAdapterFactory)
-        .build();
-  }
-
-  public TypeSpec createTypeAdapterFactory(ClassName className, ClassName autoValueClassName, TypeSpec typeAdapter, Map<String, TypeName> properties) {
-    String customTypeAdapterFactoryName = String.format("%sTypeAdapterFactory", autoValueClassName.simpleName());
-
-    TypeVariableName t = TypeVariableName.get("T");
-    TypeName typeAdapterType = ParameterizedTypeName.get(ClassName.get(TypeAdapter.class), t);
-    TypeName typeTokenType = ParameterizedTypeName.get(ClassName.get(TypeToken.class), t);
-    ParameterSpec gson = ParameterSpec.builder(Gson.class, "gson").build();
-    ParameterSpec typeToken = ParameterSpec.builder(typeTokenType, "typeToken").build();
-    MethodSpec createMethod = MethodSpec.methodBuilder("create")
-        .addModifiers(PUBLIC)
-        .addAnnotation(Override.class)
-        .addTypeVariable(t)
-        .returns(typeAdapterType)
-        .addParameter(gson)
-        .addParameter(typeToken)
-        .addStatement("if (!$T.class.isAssignableFrom($N.getRawType())) return null", autoValueClassName, typeToken)
-        .addStatement("return ($T) new $N($N)", typeAdapterType, typeAdapter, gson)
-        .build();
-
-    return TypeSpec.classBuilder(customTypeAdapterFactoryName)
-        .addModifiers(PUBLIC, STATIC, FINAL)
-        .addSuperinterface(TypeAdapterFactory.class)
-        .addMethod(createMethod)
-        .build();
-  }
-
   public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueClassName);
@@ -233,9 +237,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
-    String customTypeAdapterClass = String.format("%sTypeAdapter", autoValueClassName.simpleName());
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(customTypeAdapterClass)
-        .addModifiers(PUBLIC, STATIC, FINAL)
+    TypeSpec.Builder classBuilder = TypeSpec.classBuilder("GsonTypeAdapter")
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
@@ -394,7 +396,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private CodeBlock makeType(ParameterizedTypeName type) {
     CodeBlock.Builder block = CodeBlock.builder();
-    block.add("new TypeToken<$T>(){}", type);
+    block.add("new $T<$T>(){}", TypeToken.class, type);
     return block.build();
   }
 }
