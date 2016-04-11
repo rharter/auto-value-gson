@@ -278,10 +278,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName token = ClassName.get(JsonToken.NULL.getClass());
     ClassName jsonToken = ClassName.get(JsonToken.class);
 
-    readMethod.addStatement("$T peek = $N.peek();", jsonToken, jsonReader);
+    readMethod.addStatement("$T peek = $N.peek()", jsonToken, jsonReader);
     readMethod.beginControlFlow("if (peek == $T.NULL)", token);
-    readMethod.addStatement("$N.nextNull();", jsonReader);
-    readMethod.addStatement("return null;");
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
