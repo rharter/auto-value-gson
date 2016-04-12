@@ -16,7 +16,7 @@ Simply include auto-value-gson in your project and add a public static method to
   // The public static method returning a TypeAdapter<Foo> is what
   // tells auto-value-gson to create a TypeAdapter for Foo.
   public static TypeAdapter<Foo> typeAdapter(Gson gson) {
-    return AutoValue_Foo.GsonTypeAdapter(gson);
+    return new AutoValue_Foo.GsonTypeAdapter(gson);
   }
 }
 
@@ -24,9 +24,9 @@ public class AutoValueTypeAdapterFactory extends TypeAdapterFactory {
   public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
     Class<? super T> rawType = type.getRawType();
     if (rawType.equals(Foo.class)) {
-      return new Foo.typeAdapter(gson);
+      return (TypeAdapter<T>) new Foo.typeAdapter(gson);
     } else if (rawType.equals(Bar.class)) {
-      return new Bar.typeAdapter(gson);
+      return (TypeAdapter<T>) new Bar.typeAdapter(gson);
     }
     return null;
   }
@@ -48,6 +48,13 @@ apt 'com.ryanharter.auto.value:auto-value-gson:0.2.2'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
+
+In Order for the latest update to work (where this documentation is referring to) you need to have the snapshot
+version which is available on https://jitpack.io/#rharter/auto-value-gson/-0.2.2-g71443cc-5
+
+```groovy
+apt 'com.github.rharter:auto-value-gson:-SNAPSHOT'
+```
 
 ## License
 
