@@ -44,7 +44,7 @@ Now build your project and de/serialize your Foo.
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.2.2'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.2.3'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
