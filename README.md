@@ -49,13 +49,6 @@ apt 'com.ryanharter.auto.value:auto-value-gson:0.2.2'
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
 
-In Order for the latest update to work (where this documentation is referring to) you need to have the snapshot
-version which is available on https://jitpack.io/#rharter/auto-value-gson/-0.2.2-g71443cc-5
-
-```groovy
-apt 'com.github.rharter:auto-value-gson:-SNAPSHOT'
-```
-
 ## License
 
 ```
