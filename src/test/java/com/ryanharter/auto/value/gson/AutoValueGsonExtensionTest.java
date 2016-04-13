@@ -433,4 +433,26 @@ public class AutoValueGsonExtensionTest {
         .withWarningContaining("Found public static method returning TypeAdapter with no type "
             + "arguments, skipping GsonTypeAdapter generation.");
   }
+
+  @Test public void compilesWithCapitalPackageName() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("MyPackage.Foo", ""
+        + "package MyPackage;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "@AutoValue public abstract class Foo {\n"
+        + "  public static TypeAdapter<Foo> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Foo.GsonTypeAdapter(gson);"
+        + "  }\n"
+        + "  public abstract String a();\n"
+        + "  public abstract boolean b();\n"
+        + "}"
+    );
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .withWarningCount(2);
+  }
 }
