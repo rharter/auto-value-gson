@@ -1,6 +1,6 @@
 # Change Log
 
-## Version 0.2.4 (2016-04-13)
+## Version 0.2.5 (2016-04-13)
 
 #### Supports: AutoValue 1.2
  
