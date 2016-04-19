@@ -15,6 +15,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.ryanharter.auto.value.gson.annotations.AutoGson;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -31,14 +32,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
-import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -92,46 +87,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   @Override
   public boolean applicable(Context context) {
-    // check that the class contains a public static method returning a TypeAdapter
-    TypeElement type = context.autoValueClass();
-    ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
-        ClassName.get(TypeAdapter.class), TypeName.get(type.asType()));
-    TypeName returnedTypeAdapter = null;
-    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)
-          && method.getModifiers().contains(Modifier.PUBLIC)) {
-        TypeMirror rType = method.getReturnType();
-        TypeName returnType = TypeName.get(rType);
-        if (returnType.equals(typeAdapterType)) {
-          return true;
-        }
-
-        if (returnType.equals(typeAdapterType.rawType)
-          || (returnType instanceof ParameterizedTypeName
-            && ((ParameterizedTypeName) returnType).rawType.equals(typeAdapterType.rawType))) {
-          returnedTypeAdapter = returnType;
-        }
-      }
-    }
-
-    if (returnedTypeAdapter == null) {
-      return false;
-    }
-
-    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
-    Messager messager = context.processingEnvironment().getMessager();
-    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
-      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
-      TypeName argument = paramReturnType.typeArguments.get(0);
-      messager.printMessage(Diagnostic.Kind.WARNING,
-          String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-              + "Skipping GsonTypeAdapter generation.", argument, type));
-    } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
-          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
-    }
-
-    return false;
+    return context.autoValueClass().getAnnotation(AutoGson.class) != null;
   }
 
   @Override
@@ -161,7 +117,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   public List<Property> readProperties(Map<String, ExecutableElement> properties) {
-    List<Property> values = new LinkedList<Property>();
+    List<Property> values = new LinkedList<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       values.add(new Property(entry.getKey(), entry.getValue()));
     }
@@ -206,7 +162,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
    * Converts the ExecutableElement properties to TypeName properties
    */
   Map<String, TypeName> convertPropertiesToTypes(Map<String, ExecutableElement> properties) {
-    Map<String, TypeName> types = new LinkedHashMap<String, TypeName>();
+    Map<String, TypeName> types = new LinkedHashMap<>();
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       ExecutableElement el = entry.getValue();
       types.put(entry.getKey(), TypeName.get(el.getReturnType()));

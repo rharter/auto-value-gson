@@ -1,7 +1,6 @@
 package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
-import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
@@ -42,14 +41,12 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.annotations.SerializedName;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.google.auto.value.AutoValue;\n"
-        + "import com.google.gson.Gson;\n"
-        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.ryanharter.auto.value.gson.annotations.AutoGson;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "@AutoValue public abstract class Test {\n"
-        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
-        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
-        + "  }\n"
+        + "@AutoValue\n"
+        + "@AutoGson(AutoValue_Test.GsonTypeAdapter.class)\n"
+        + "public abstract class Test {\n"
         // Reference type
         + "public abstract String a();\n"
         // Array type
@@ -218,12 +215,12 @@ public class AutoValueGsonExtensionTest {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.ryanharter.auto.value.gson.annotations.AutoGson;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "@AutoValue public abstract class Test {\n"
-        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
-        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
-        + "  }\n"
+        + "@AutoValue\n"
+        + "@AutoGson(AutoValue_Test.GsonTypeAdapter.class)\n"
+        + "public abstract class Test {\n"
         + "  public abstract String getName();\n"
         + "  public abstract boolean isAwesome();\n"
         + "}"
@@ -383,67 +380,16 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void emitsWarningForWrongTypeAdapterTypeArgument() {
-    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
-        + "package test;\n"
-        + "import com.google.auto.value.AutoValue;\n"
-        + "import com.google.gson.Gson;\n"
-        + "import com.google.gson.TypeAdapter;\n"
-        + "@AutoValue public abstract class Foo {\n"
-        + "  public static TypeAdapter<Bar> typeAdapter(Gson gson) {\n"
-        + "    return null;"
-        + "  }\n"
-        + "  public abstract String a();\n"
-        + "  public abstract boolean b();\n"
-        + "}"
-    );
-
-    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
-        + "package test;\n"
-        + "public class Bar {\n"
-        + "}");
-
-    assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source2))
-        .processedWith(new AutoValueProcessor())
-        .compilesWithoutError()
-        .withWarningContaining("Found public static method returning TypeAdapter<test.Bar> on "
-            + "test.Foo class. Skipping GsonTypeAdapter generation.");
-  }
-
-  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
-    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
-        + "package test;\n"
-        + "import com.google.auto.value.AutoValue;\n"
-        + "import com.google.gson.Gson;\n"
-        + "import com.google.gson.TypeAdapter;\n"
-        + "@AutoValue public abstract class Foo {\n"
-        + "  public static TypeAdapter typeAdapter(Gson gson) {\n"
-        + "    return null;"
-        + "  }\n"
-        + "  public abstract String a();\n"
-        + "  public abstract boolean b();\n"
-        + "}"
-    );
-
-    assertAbout(javaSource())
-        .that(source1)
-        .processedWith(new AutoValueProcessor())
-        .compilesWithoutError()
-        .withWarningContaining("Found public static method returning TypeAdapter with no type "
-            + "arguments, skipping GsonTypeAdapter generation.");
-  }
-
   @Test public void compilesWithCapitalPackageName() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("MyPackage.Foo", ""
         + "package MyPackage;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.ryanharter.auto.value.gson.annotations.AutoGson;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "@AutoValue public abstract class Foo {\n"
-        + "  public static TypeAdapter<Foo> typeAdapter(Gson gson) {\n"
-        + "    return new AutoValue_Foo.GsonTypeAdapter(gson);"
-        + "  }\n"
+        + "@AutoValue\n"
+        + "@AutoGson(AutoValue_Foo.GsonTypeAdapter.class)\n"
+        + "public abstract class Foo {\n"
         + "  public abstract String a();\n"
         + "  public abstract boolean b();\n"
         + "}"
