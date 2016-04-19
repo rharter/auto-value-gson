@@ -4,13 +4,6 @@ apply plugin: 'maven-publish'
 sourceCompatibility = JavaVersion.VERSION_1_7
 targetCompatibility = JavaVersion.VERSION_1_7
 
-repositories {
-    maven {
-        url 'http://oss.sonatype.org/content/repositories/snapshots'
-    }
-    mavenCentral()
-}
-
 test {
     testLogging.showStandardStreams = true
 }

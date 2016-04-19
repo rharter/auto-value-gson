@@ -1,5 +1,8 @@
 apply plugin: 'java'
 
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
+
 dependencies {
     compile 'com.google.code.gson:gson:2.6.2'
 }
