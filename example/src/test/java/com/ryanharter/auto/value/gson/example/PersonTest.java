@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.junit.Assert;
 import org.junit.Test;
-import org.skyscreamer.jsonassert.JSONAssert;
 
 public class PersonTest {
     @Test
@@ -17,10 +16,10 @@ public class PersonTest {
                 .gender(1)
                 .age(23)
                 .build();
-        String json = "{\"name\":\"Piasy\",\"age\":23,\"gender\":1}";
+        String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":23}";
 
         String toJson = gson.toJson(person, Person.class);
-        JSONAssert.assertEquals(json, toJson, false);
+        Assert.assertEquals(json, toJson);
 
         Person fromJson = gson.fromJson(json, Person.class);
         Assert.assertEquals("Piasy", fromJson.name());
