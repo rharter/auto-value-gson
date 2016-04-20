@@ -20,7 +20,7 @@ Simply include auto-value-gson in your project and add a public static method to
   }
 }
 
-public class AutoValueTypeAdapterFactory extends TypeAdapterFactory {
+public class AutoValueTypeAdapterFactory implements TypeAdapterFactory {
   public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
     Class<? super T> rawType = type.getRawType();
     if (rawType.equals(Foo.class)) {
