@@ -15,22 +15,8 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.TypeVariableName;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import com.squareup.javapoet.*;
+
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -39,12 +25,10 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
+import java.io.IOException;
+import java.util.*;
 
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.Modifier.*;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
@@ -292,6 +276,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addException(IOException.class);
 
     ClassName token = ClassName.get(JsonToken.NULL.getClass());
+    ClassName jsonToken = ClassName.get(JsonToken.class);
+
+    readMethod.addStatement("$T peek = $N.peek()", jsonToken, jsonReader);
+    readMethod.beginControlFlow("if (peek == $T.NULL)", token);
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("return null");
+    readMethod.endControlFlow();
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
