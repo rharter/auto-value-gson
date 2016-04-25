@@ -1,2 +1,2 @@
-rootProject.name = 'auto-value-gson'
+include ':example', ':auto-value-gson'
 
