@@ -244,6 +244,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addParameter(annotatedParam)
         .addException(IOException.class);
 
+    writeMethod.beginControlFlow("if (object == null)");
+    writeMethod.addStatement("$N.nullValue()", jsonWriter);
+    writeMethod.addStatement("return");
+    writeMethod.endControlFlow();
+
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
