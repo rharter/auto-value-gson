@@ -455,4 +455,83 @@ public class AutoValueGsonExtensionTest {
         .compilesWithoutError()
         .withWarningCount(2);
   }
+
+  @Test public void generatesCorrectDefaultCharPrimitiveValue() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
+        + "  }\n"
+        + "public abstract char c();\n"
+        + "}\n"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import com.google.gson.stream.JsonToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Character;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "\n"
+        + "final class AutoValue_Test extends $AutoValue_Test {\n"
+        + "  AutoValue_Test(char c) {\n"
+        + "    super(c);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
+        + "    private final TypeAdapter<Character> cAdapter;\n"
+        + "    public GsonTypeAdapter(Gson gson) {\n"
+        + "      this.cAdapter = gson.getAdapter(Character.class);\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
+        + "      jsonWriter.beginObject();\n"
+        + "      jsonWriter.name(\"c\");\n"
+        + "      cAdapter.write(jsonWriter, object.c());\n"
+        + "      jsonWriter.endObject();\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public Test read(JsonReader jsonReader) throws IOException {\n"
+        + "      jsonReader.beginObject();\n"
+        + "      char c = '\0';\n"
+        + "      while (jsonReader.hasNext()) {\n"
+        + "        String _name = jsonReader.nextName();\n"
+        + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "          jsonReader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (_name) {\n"
+        + "          case \"c\": {\n"
+        + "            c = cAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            jsonReader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      jsonReader.endObject();\n"
+        + "      return new AutoValue_Test(c);\n"
+        + "    }\n"
+        + "  }\n"
+        + "}"
+    );
+
+    assertAbout(javaSources())
+      .that(Arrays.asList(nullable, source))
+      .processedWith(new AutoValueProcessor())
+      .compilesWithoutError()
+      .and()
+      .generatesSources(expected);
+  }
 }
