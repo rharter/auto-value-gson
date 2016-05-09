@@ -383,6 +383,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
               case "long":
                 valueString = valueString + "L";
                 break;
+              case "char":
+                valueString = "'" + valueString + "'";
+                break;
             }
           }
         }
