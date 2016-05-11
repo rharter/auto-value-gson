@@ -38,10 +38,12 @@ also generates an `AutoValueGsonTypeAdapterFactory` class which you can register
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.2.5'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.3.0'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
+
+Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
 
 ## License
 

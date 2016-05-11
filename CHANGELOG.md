@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.3.0 (2016-05-11)
+
+#### Supports: AutoValue 1.2
+ 
+* Adds support for single AutoValueGsonTypeAdapterFactory for all AutoValue gson types.
+* Fixes generation of TypeAdapter.read() for 'char' values
+* Adds sample project.
+
 ## Version 0.2.5 (2016-04-13)
 
 #### Supports: AutoValue 1.2
