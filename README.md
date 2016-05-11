@@ -6,7 +6,9 @@ An extension for Google's [AutoValue](https://github.com/google/auto) that creat
 
 ## Usage
 
-Simply include auto-value-gson in your project and add a public static method to your `@AutoValue` annotated class returning a TypeAdapter.  You can also annotate your properties using `@SerializedName` to define an alternate name for de/serialization.
+Simply include auto-value-gson in your project and add a public static method to your `@AutoValue` 
+annotated class returning a TypeAdapter.  You can also annotate your properties using 
+`@SerializedName` to define an alternate name for de/serialization.
 
 ```java
 @AutoValue public abstract class Foo {
@@ -20,25 +22,16 @@ Simply include auto-value-gson in your project and add a public static method to
   }
 }
 
-public class AutoValueTypeAdapterFactory implements TypeAdapterFactory {
-  @Override
-  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
-    Class<? super T> rawType = type.getRawType();
-    if (rawType.equals(Foo.class)) {
-      return (TypeAdapter<T>) Foo.typeAdapter(gson);
-    } else if (rawType.equals(Bar.class)) {
-      return (TypeAdapter<T>) Bar.typeAdapter(gson);
-    }
-    return null;
-  }
-}
-
 final Gson gson = new GsonBuilder()
-  .registerTypeAdapterFactory(new AutoValueTypeAdapterFactory())
+  .registerTypeAdapterFactory(new AutoValueGsonTypeAdapterFactory())
   .create();
 ```
 
 Now build your project and de/serialize your Foo.
+
+In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-gson
+also generates an `AutoValueGsonTypeAdapterFactory` class which you can register with your 
+`GsonBuilder` to automatically add all of your generated TypeAdapters.
 
 ## Download
 
