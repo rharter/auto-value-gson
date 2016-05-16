@@ -4,12 +4,13 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.junit.Assert;
 import org.junit.Test;
+import com.ryanharter.auto.value.gson.AutoValueGsonTypeAdapterFactory;
 
 public class PersonTest {
     @Test
     public void testGson() throws Exception {
         Gson gson = new GsonBuilder()
-                .registerTypeAdapterFactory(new PersonTypeAdapterFactory())
+                .registerTypeAdapterFactory(new AutoValueGsonTypeAdapterFactory())
                 .create();
         Person person = Person.builder()
                 .name("Piasy")
