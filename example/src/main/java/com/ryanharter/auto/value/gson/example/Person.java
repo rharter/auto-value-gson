@@ -12,6 +12,8 @@ public abstract class Person {
 
     public abstract int age();
 
+    public abstract Address address();
+
     public static Builder builder() {
         return new AutoValue_Person.Builder();
     }
@@ -27,6 +29,8 @@ public abstract class Person {
         public abstract Builder gender(int gender);
 
         public abstract Builder age(int age);
+
+        public abstract Builder address(Address address);
 
         public abstract Person build();
     }
