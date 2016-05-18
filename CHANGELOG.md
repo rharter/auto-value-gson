@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.3.1 (2016-05-17)
+
+#### Supports: AutoValue 1.2
+ 
+* Replaces equals check with `isAssignableFrom` in generated type adapter factory.
+
 ## Version 0.3.0 (2016-05-11)
 
 #### Supports: AutoValue 1.2
