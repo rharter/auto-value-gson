@@ -16,8 +16,9 @@ public class PersonTest {
                 .name("Piasy")
                 .gender(1)
                 .age(23)
+                .address(Address.create("street", "city"))
                 .build();
-        String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":23}";
+        String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":23,\"address\":{\"street-name\":\"street\",\"city\":\"city\"}}";
 
         String toJson = gson.toJson(person, Person.class);
         Assert.assertEquals(json, toJson);

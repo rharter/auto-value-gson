@@ -101,9 +101,9 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     for (int i = 0, elementsSize = elements.size(); i < elementsSize; i++) {
       Element element = elements.get(i);
       if (i == 0) {
-        create.beginControlFlow("if (rawType.equals($T.class))", element);
+        create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", element);
       } else {
-        create.nextControlFlow("else if (rawType.equals($T.class))", element);
+        create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", element);
       }
       ExecutableElement typeAdapterMethod = getTypeAdapterMethod(element);
       create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, element, gson);

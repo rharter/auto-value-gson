@@ -2,8 +2,10 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
-import javax.tools.JavaFileObject;
+
 import org.junit.Test;
+
+import javax.tools.JavaFileObject;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
@@ -46,9 +48,9 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "public final class AutoValueGsonTypeAdapterFactory implements TypeAdapterFactory {\n"
         + "  @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
         + "    Class<T> rawType = (Class<T>) type.getRawType();\n"
-        + "    if (rawType.equals(Foo.class)) {\n"
+        + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
-        + "    } else if (rawType.equals(Bar.class)) {\n"
+        + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
         + "    } else {\n"
         + "      return null;\n"
