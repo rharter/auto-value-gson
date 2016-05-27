@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.3.2 (2016-05-27)
+
+#### Supports: AutoValue: 1.2
+
+* Removes final modifier from AutoValueGsonAdapterFactory.
+
 ## Version 0.3.1 (2016-05-17)
 
 #### Supports: AutoValue 1.2
