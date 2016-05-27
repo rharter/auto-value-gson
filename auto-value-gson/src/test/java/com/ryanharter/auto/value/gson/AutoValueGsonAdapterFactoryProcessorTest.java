@@ -45,7 +45,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "import java.lang.Override;\n"
         + "import test.Bar;\n"
         + "import test.Foo;\n"
-        + "public final class AutoValueGsonTypeAdapterFactory implements TypeAdapterFactory {\n"
+        + "public class AutoValueGsonTypeAdapterFactory implements TypeAdapterFactory {\n"
         + "  @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
         + "    Class<T> rawType = (Class<T>) type.getRawType();\n"
         + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
