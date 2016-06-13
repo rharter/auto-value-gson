@@ -33,7 +33,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
-import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
@@ -100,13 +99,26 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
     for (int i = 0, elementsSize = elements.size(); i < elementsSize; i++) {
       Element element = elements.get(i);
+      TypeName elementTypeName = TypeName.get(element.asType());
       if (i == 0) {
         create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", element);
+      } else if (elementTypeName instanceof ParameterizedTypeName) {
+        create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))",
+                ((ParameterizedTypeName)elementTypeName).rawType);
       } else {
         create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", element);
       }
       ExecutableElement typeAdapterMethod = getTypeAdapterMethod(element);
-      create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, element, gson);
+
+      if (typeAdapterMethod != null) {
+        if (typeAdapterMethod.getParameters().size() == 2 && elementTypeName instanceof ParameterizedTypeName) {
+          // generic types require two parameters
+          ClassName rawType = ((ParameterizedTypeName) elementTypeName).rawType;
+          create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N, (TypeToken<? extends $T>)$N)", t, rawType, gson, rawType, type);
+        } else {
+          create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, element, gson);
+        }
+      }
     }
     create.nextControlFlow("else");
     create.addStatement("return null");
@@ -125,6 +137,15 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         TypeName returnType = TypeName.get(method.getReturnType());
         if (returnType.equals(typeAdapterType)) {
           return method;
+        }
+
+        TypeName typeAdapterTypeArgument = typeAdapterType.typeArguments.get(0);
+
+        // it's a generic
+        if (typeAdapterTypeArgument instanceof ParameterizedTypeName && returnType instanceof ParameterizedTypeName) {
+          if (((ParameterizedTypeName)returnType).typeArguments.get(0).equals(((ParameterizedTypeName)typeAdapterTypeArgument).rawType)) {
+            return method;
+          }
         }
       }
     }
