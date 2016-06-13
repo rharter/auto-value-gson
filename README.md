@@ -38,7 +38,7 @@ also generates an `AutoValueGsonTypeAdapterFactory` class which you can register
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.3.2'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.3.2-rc1'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)

@@ -1,9 +1,10 @@
 # Change Log
 
-## Version 0.3.2 (2016-05-27)
+## Version 0.3.2-rc1 (2016-06-13)
 
-#### Supports: AutoValue: 1.2
+#### Supports: AutoValue: 1.3-rc1
 
+* Updates extension to support AutoValue 1.3-rc1
 * Removes final modifier from AutoValueGsonAdapterFactory.
 
 ## Version 0.3.1 (2016-05-17)
