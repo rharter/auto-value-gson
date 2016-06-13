@@ -156,5 +156,9 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     @Override public Map<String, ExecutableElement> properties() {
       return null;
     }
+
+    @Override public Set<ExecutableElement> abstractMethods() {
+      return null;
+    }
   }
 }
