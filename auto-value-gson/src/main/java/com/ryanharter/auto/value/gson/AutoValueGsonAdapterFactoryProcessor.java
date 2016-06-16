@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -16,11 +17,13 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -33,7 +36,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
-import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 /**
@@ -94,6 +96,9 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .addModifiers(PUBLIC)
         .addTypeVariable(t)
         .addAnnotation(Override.class)
+        .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+            .addMember("value", "$S", "unchecked")
+            .build())
         .addParameters(ImmutableSet.of(gson, type))
         .returns(result)
         .addStatement("Class<$T> rawType = (Class<$T>) $N.getRawType()", t, t, type);
