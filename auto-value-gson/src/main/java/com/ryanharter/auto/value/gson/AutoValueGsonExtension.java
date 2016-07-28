@@ -25,7 +25,12 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.WildcardTypeName;
+import com.sun.xml.internal.bind.v2.schemagen.xmlschema.Wildcard;
 import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -36,7 +41,9 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
@@ -103,8 +110,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public boolean applicable(Context context) {
     // check that the class contains a public static method returning a TypeAdapter
     TypeElement type = context.autoValueClass();
+    TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
-        ClassName.get(TypeAdapter.class), TypeName.get(type.asType()));
+        ClassName.get(TypeAdapter.class), typeName);
     TypeName returnedTypeAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(Modifier.STATIC)
@@ -132,9 +140,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (returnedTypeAdapter instanceof ParameterizedTypeName) {
       ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
       TypeName argument = paramReturnType.typeArguments.get(0);
-      messager.printMessage(Diagnostic.Kind.WARNING,
-          String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-              + "Skipping GsonTypeAdapter generation.", argument, type));
+
+      // If the original type uses generics, user's don't have to nest the generic type args
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+        if (pTypeName.rawType.equals(argument)) {
+          return true;
+        }
+      } else {
+        messager.printMessage(Diagnostic.Kind.WARNING,
+            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+                + "Skipping GsonTypeAdapter generation.", argument, type));
+      }
     } else {
       messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
           + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
@@ -152,19 +169,32 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.get(context.autoValueClass());
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
+    List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
+    List<TypeVariableName> params = new ArrayList<>(typeParams.size());
+    TypeName superclasstype = ClassName.get(context.packageName(), classToExtend);
+    if (!typeParams.isEmpty()) {
+      for (TypeParameterElement typeParam : typeParams) {
+        params.add(TypeVariableName.get(typeParam));
+      }
+      superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
+    }
 
-    TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
-        .superclass(TypeVariableName.get(classToExtend))
+    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties, params);
+
+    TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
+        .superclass(superclasstype)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types));
+
+    if (!typeParams.isEmpty()) {
+      subclass.addTypeVariables(params);
+    }
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
     } else {
       subclass.addModifiers(ABSTRACT);
     }
-
 
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
   }
@@ -183,6 +213,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     for (Property property : properties) {
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
+      if (type instanceof TypeVariableName) {
+        type = TypeName.get(Object.class);
+      }
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
       fields.put(property,
               FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
@@ -223,7 +256,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
+  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueClassName);
 
@@ -234,15 +267,41 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .addModifiers(PUBLIC)
             .addParameter(gsonParam);
 
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-      Property prop = entry.getKey();
-      FieldSpec field = entry.getValue();
-      if (entry.getKey().type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
-            makeType((ParameterizedTypeName) prop.type));
-      } else {
-        TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
+    if (!typeParams.isEmpty()) {
+      ParameterSpec typeAdapter = ParameterSpec
+          .builder(ParameterizedTypeName.get(ClassName.get(TypeToken.class), WildcardTypeName.subtypeOf(autoValueClassName)), "typeToken")
+          .build();
+      constructor.addParameter(typeAdapter);
+
+      constructor.addStatement("$T type = $N.getType()", Type.class, typeAdapter);
+      constructor.beginControlFlow("if (type instanceof $T)", ParameterizedType.class);
+      constructor.addStatement("$1T pType = ($1T) type", ParameterizedType.class);
+      constructor.addStatement("$T[] typeArgs = pType.getActualTypeArguments()", Type.class);
+      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+        Property prop = entry.getKey();
+        FieldSpec field = entry.getValue();
+        constructor.addStatement("this.$N = ($T) $N.getAdapter($T.get(typeArgs[$L]))", field,
+            field.type, gsonParam, TypeToken.class, typeParams.indexOf(prop.type));
+      }
+      constructor.nextControlFlow("else");
+      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+        Property prop = entry.getKey();
+        FieldSpec field = entry.getValue();
+        constructor.addStatement("this.$N = $N.getAdapter($T.get(Object.class))", field, gsonParam,
+            TypeToken.class);
+      }
+      constructor.endControlFlow();
+    } else {
+      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+        Property prop = entry.getKey();
+        FieldSpec field = entry.getValue();
+        if (entry.getKey().type instanceof ParameterizedTypeName) {
+          constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
+              makeType((ParameterizedTypeName) prop.type));
+        } else {
+          TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
+        }
       }
     }
 
@@ -307,7 +366,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
     for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
+      TypeName fieldType = prop.type;
+      if (prop.type instanceof TypeVariableName) {
+        fieldType = WildcardTypeName.get(Object.class);
+      }
+      FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
       if (field.type.isPrimitive()) {
         String defaultValue = getDefaultPrimitiveValue(field.type);

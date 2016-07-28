@@ -2,7 +2,9 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.reflect.TypeToken;
 import com.google.testing.compile.JavaFileObjects;
+import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
 import org.junit.Before;
@@ -547,5 +549,114 @@ public class AutoValueGsonExtensionTest {
       .compilesWithoutError()
       .and()
       .generatesSources(expected);
+  }
+
+  @Test public void handlesGenericTypes() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.reflect.TypeToken;\n"
+        + "@AutoValue public abstract class Foo<A, B, C> {\n"
+        + "  public static TypeAdapter<Foo> typeAdapter(Gson gson, TypeToken<? extends Foo> typeToken) {\n"
+        + "    return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);"
+        + "  }\n"
+        + "  public abstract C c();\n"
+        + "  public abstract A a();\n"
+        + "  public abstract B b();\n"
+        + "}"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test.AutoValue_Test", ""
+        + "package test;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.reflect.TypeToken;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import com.google.gson.stream.JsonToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Object;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "import java.lang.reflect.ParameterizedType;\n"
+        + "import java.lang.reflect.Type;\n"
+        + "final class AutoValue_Foo<A, B, C> extends $AutoValue_Foo<A, B, C> {\n"
+        + "  AutoValue_Foo(C c, A a, B b) {\n"
+        + "    super(c, a, b);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class GsonTypeAdapter extends TypeAdapter<Foo> {\n"
+        + "    private final TypeAdapter<Object> cAdapter;\n"
+        + "    private final TypeAdapter<Object> aAdapter;\n"
+        + "    private final TypeAdapter<Object> bAdapter;\n"
+        + "    public GsonTypeAdapter(Gson gson, TypeToken<? extends Foo> typeToken) {\n"
+        + "      Type type = typeToken.getType();\n"
+        + "      if (type instanceof ParameterizedType) {\n"
+        + "        ParameterizedType pType = (ParameterizedType) type;\n"
+        + "        Type[] typeArgs = pType.getActualTypeArguments();"
+        + "        this.cAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[2]));\n"
+        + "        this.aAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[0]));\n"
+        + "        this.bAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[1]));\n"
+        + "      } else {\n"
+        + "        this.cAdapter = gson.getAdapter(TypeToken.get(Object.class));\n"
+        + "        this.aAdapter = gson.getAdapter(TypeToken.get(Object.class));\n"
+        + "        this.bAdapter = gson.getAdapter(TypeToken.get(Object.class));\n"
+        + "      }\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public void write(JsonWriter jsonWriter, Foo object) throws IOException {\n"
+        + "      jsonWriter.beginObject();\n"
+        + "      jsonWriter.name(\"c\");\n"
+        + "      cAdapter.write(jsonWriter, object.c());\n"
+        + "      jsonWriter.name(\"a\");\n"
+        + "      aAdapter.write(jsonWriter, object.a());\n"
+        + "      jsonWriter.name(\"b\");\n"
+        + "      bAdapter.write(jsonWriter, object.b());\n"
+        + "      jsonWriter.endObject();\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public Foo read(JsonReader jsonReader) throws IOException {\n"
+        + "      jsonReader.beginObject();\n"
+        + "      Object c = null;\n"
+        + "      Object a = null;\n"
+        + "      Object b = null;\n"
+        + "      while (jsonReader.hasNext()) {\n"
+        + "        String _name = jsonReader.nextName();\n"
+        + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "          jsonReader.skipValue();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (_name) {\n"
+        + "          case \"c\": {\n"
+        + "            c = cAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"a\": {\n"
+        + "            a = aAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"b\": {\n"
+        + "            b = bAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            jsonReader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      jsonReader.endObject();\n"
+        + "      return new AutoValue_Foo(c, a, b);\n"
+        + "    }"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSource())
+        .that(source1)
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
   }
 }
