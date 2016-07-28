@@ -156,7 +156,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       subclass.addModifiers(ABSTRACT);
     }
 
-
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
   }
 
