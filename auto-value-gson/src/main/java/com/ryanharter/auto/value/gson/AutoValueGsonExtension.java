@@ -74,7 +74,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
-
     public String[] serializedNameAlternate() {
       SerializedName serializedName = element.getAnnotation(SerializedName.class);
       if (serializedName != null) {
