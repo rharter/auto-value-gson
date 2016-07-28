@@ -27,6 +27,14 @@ final Gson gson = new GsonBuilder()
   .create();
 ```
 
+If `Foo` used a generic type the static typeAdapter method would require a second parameter, `TypeToken<? extends Foo>`.
+
+```java
+public static TypeAdapter<Foo> typeAdapter(Gson gson, TypeToken<? extends Foo> typeToken) {
+  return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
+}
+```
+
 Now build your project and de/serialize your Foo.
 
 In addition to generating implementations of your `@AutoValue` annotated classes, auto-value-gson

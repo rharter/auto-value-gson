@@ -36,6 +36,18 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "  }\n"
         + "  public abstract String getName();\n"
         + "}");
+    JavaFileObject source3 = JavaFileObjects.forSourceString("test.Baz", ""
+            + "package test;\n"
+            + "import com.google.auto.value.AutoValue;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.reflect.TypeToken;\n"
+            + "import com.google.gson.Gson;\n"
+            + "@AutoValue public abstract class Baz<T> {\n"
+            + "  public static TypeAdapter<Baz> typeAdapter(Gson gson, TypeToken<? extends Baz> typeToken) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  public abstract T getData();\n"
+            + "}");
     JavaFileObject expected = JavaFileObjects.forSourceString("com.ryanharter.auto.value.gson.AutoValueGsonTypeAdapterFactory", ""
         + "package com.ryanharter.auto.value.gson;\n"
         + "import com.google.gson.Gson;\n"
@@ -44,6 +56,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "import com.google.gson.reflect.TypeToken;\n"
         + "import java.lang.Override;\n"
         + "import test.Bar;\n"
+        + "import test.Baz;\n"
         + "import test.Foo;\n"
         + "public class AutoValueGsonTypeAdapterFactory implements TypeAdapterFactory {\n"
         + "  @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
@@ -52,6 +65,8 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
         + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
+        + "    } else if (Baz.class.isAssignableFrom(rawType)) {\n"
+        + "      return (TypeAdapter<T>) Baz.typeAdapter(gson, (TypeToken<? extends Baz>)type);\n"
         + "    } else {\n"
         + "      return null;\n"
         + "    }\n"
@@ -59,7 +74,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "}");
 
     assertAbout(javaSources())
-        .that(ImmutableSet.of(source1, source2))
+        .that(ImmutableSet.of(source1, source2, source3))
         .processedWith(new AutoValueGsonAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
