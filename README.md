@@ -66,7 +66,7 @@ Gson gson = new GsonBuilder()
 Add a Gradle dependency:
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.3.2-rc1'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.4.0'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)

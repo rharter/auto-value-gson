@@ -1,5 +1,12 @@
 # Change Log
 
+## version 0.4.0 (2016-07-28)
+
+#### Supports: AutoValue: 1.3-rc1
+
+* Adds alternate serialization names
+* Changes to AutoValue-esque factory generation.
+
 ## Version 0.3.2-rc1 (2016-06-13)
 
 #### Supports: AutoValue: 1.3-rc1
