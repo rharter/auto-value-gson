@@ -74,6 +74,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
+    public String[] serializedNameAlternate() {
+      SerializedName serializedName = element.getAnnotation(SerializedName.class);
+      if (serializedName != null) {
+        return serializedName.alternate();
+      } else {
+        return new String[0];
+      }
+    }
+
     public Boolean nullable() {
       return annotations.contains("Nullable");
     }
@@ -328,6 +337,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
+      for (String alternate : prop.serializedNameAlternate()) {
+        readMethod.addCode("case $S:\n", alternate);
+      }
       readMethod.beginControlFlow("case $S:", prop.serializedName());
       readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop), jsonReader);
       readMethod.addStatement("break");

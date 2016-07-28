@@ -65,7 +65,9 @@ public class AutoValueGsonExtensionTest {
         // Parametrized type, single parameter
         + "public abstract Set<String> g();\n"
         // Nested parameterized type
-        + "public abstract Map<String, Set<String>> h();\n" +
+        + "public abstract Map<String, Set<String>> h();\n"
+        // SerializedName with alternate
+        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract String i();\n" +
         "  @AutoValue.Builder public static abstract class Builder {\n" +
         "    public abstract Builder a(String a);\n" +
         "    public abstract Builder b(int[] b);\n" +
@@ -75,6 +77,7 @@ public class AutoValueGsonExtensionTest {
         "    public abstract Builder f(Map<String, Number> f);\n" +
         "    public abstract Builder g(Set<String> g);\n" +
         "    public abstract Builder h(Map<String, Set<String>> h);\n" +
+        "    public abstract Builder i(String i);\n" +
         "    public abstract Test build();\n" +
         "  }\n"
         + "}\n"
@@ -98,8 +101,8 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.Set;\n"
         + "\n"
         + "final class AutoValue_Test extends $AutoValue_Test {\n"
-        + "  AutoValue_Test(String a, int[] b, int c, String d, String e, Map<String, Number> f, Set<String> g, Map<String, Set<String>> h) {\n"
-        + "    super(a, b, c, d, e, f, g, h);\n"
+        + "  AutoValue_Test(String a, int[] b, int c, String d, String e, Map<String, Number> f, Set<String> g, Map<String, Set<String>> h, String i) {\n"
+        + "    super(a, b, c, d, e, f, g, h, i);\n"
         + "  }\n"
         + "\n"
         + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
@@ -111,6 +114,7 @@ public class AutoValueGsonExtensionTest {
         + "    private final TypeAdapter<Map<String, Number>> fAdapter;\n"
         + "    private final TypeAdapter<Set<String>> gAdapter;\n"
         + "    private final TypeAdapter<Map<String, Set<String>>> hAdapter;\n"
+        + "    private final TypeAdapter<String> iAdapter;\n"
         + "    public GsonTypeAdapter(Gson gson) {\n"
         + "      this.aAdapter = gson.getAdapter(String.class);\n"
         + "      this.bAdapter = gson.getAdapter(int[].class);\n"
@@ -120,6 +124,7 @@ public class AutoValueGsonExtensionTest {
         + "      this.fAdapter = gson.getAdapter(new TypeToken<Map<String, Number>>(){});\n"
         + "      this.gAdapter = gson.getAdapter(new TypeToken<Set<String>>(){});\n"
         + "      this.hAdapter = gson.getAdapter(new TypeToken<Map<String, Set<String>>>(){});\n"
+        + "      this.iAdapter = gson.getAdapter(String.class);\n"
         + "    }\n"
         + "    @Override\n"
         + "    public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
@@ -142,6 +147,8 @@ public class AutoValueGsonExtensionTest {
         + "      gAdapter.write(jsonWriter, object.g());\n"
         + "      jsonWriter.name(\"h\");\n"
         + "      hAdapter.write(jsonWriter, object.h());\n"
+        + "      jsonWriter.name(\"_I\");\n"
+        + "      iAdapter.write(jsonWriter, object.i());\n"
         + "      jsonWriter.endObject();\n"
         + "    }\n"
         + "    @Override\n"
@@ -155,6 +162,7 @@ public class AutoValueGsonExtensionTest {
         + "      Map<String, Number> f = null;\n"
         + "      Set<String> g = null;\n"
         + "      Map<String, Set<String>> h = null;\n"
+        + "      String i = null;\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
         + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
@@ -194,13 +202,19 @@ public class AutoValueGsonExtensionTest {
         + "            h = hAdapter.read(jsonReader);\n"
         + "            break;\n"
         + "          }\n"
+        + "          case \"_I_1\":\n"
+        + "          case \"_I_2\":\n"
+        + "          case \"_I\": {\n"
+        + "            i = iAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
         + "          default: {\n"
         + "            jsonReader.skipValue();\n"
         + "          }\n"
         + "        }\n"
         + "      }\n"
         + "      jsonReader.endObject();\n"
-        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h);\n"
+        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h, i);\n"
         + "    }\n"
         + "  }\n"
         + "}"
