@@ -7,6 +7,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -26,11 +27,11 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
-import com.sun.xml.internal.bind.v2.schemagen.xmlschema.Wildcard;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -268,6 +269,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .addParameter(gsonParam);
 
     if (!typeParams.isEmpty()) {
+      ImmutableMap<Property, FieldSpec> parameterizedAdapters = filterParameterizedAdapters(adapters, true);
+
       ParameterSpec typeAdapter = ParameterSpec
           .builder(ParameterizedTypeName.get(ClassName.get(TypeToken.class), WildcardTypeName.subtypeOf(autoValueClassName)), "typeToken")
           .build();
@@ -277,32 +280,28 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       constructor.beginControlFlow("if (type instanceof $T)", ParameterizedType.class);
       constructor.addStatement("$1T pType = ($1T) type", ParameterizedType.class);
       constructor.addStatement("$T[] typeArgs = pType.getActualTypeArguments()", Type.class);
-      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      for (Map.Entry<Property, FieldSpec> entry : parameterizedAdapters.entrySet()) {
         Property prop = entry.getKey();
         FieldSpec field = entry.getValue();
         constructor.addStatement("this.$N = ($T) $N.getAdapter($T.get(typeArgs[$L]))", field,
             field.type, gsonParam, TypeToken.class, typeParams.indexOf(prop.type));
       }
       constructor.nextControlFlow("else");
-      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      for (Map.Entry<Property, FieldSpec> entry : parameterizedAdapters.entrySet()) {
         Property prop = entry.getKey();
         FieldSpec field = entry.getValue();
         constructor.addStatement("this.$N = $N.getAdapter($T.get(Object.class))", field, gsonParam,
             TypeToken.class);
       }
       constructor.endControlFlow();
-    } else {
-      for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-        Property prop = entry.getKey();
-        FieldSpec field = entry.getValue();
-        if (entry.getKey().type instanceof ParameterizedTypeName) {
-          constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
-              makeType((ParameterizedTypeName) prop.type));
-        } else {
-          TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
-        }
-      }
+    }
+
+    ImmutableMap<Property, FieldSpec> nonparameterizedAdapters = filterParameterizedAdapters(adapters, false);
+    for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
+      Property prop = entry.getKey();
+      FieldSpec field = entry.getValue();
+      TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+      constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
     }
 
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder("GsonTypeAdapter")
@@ -315,6 +314,16 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
 
     return classBuilder.build();
+  }
+
+  private ImmutableMap<Property, FieldSpec> filterParameterizedAdapters(Map<Property, FieldSpec> adapters, boolean parameterized) {
+    ImmutableMap.Builder<Property, FieldSpec> out = new ImmutableMap.Builder<>();
+    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      if ((entry.getKey().type instanceof TypeVariableName) == parameterized) {
+        out.put(entry);
+      }
+    }
+    return out.build();
   }
 
   public MethodSpec createWriteMethod(ClassName autoValueClassName,
