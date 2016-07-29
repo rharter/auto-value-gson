@@ -14,9 +14,6 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
-/**
- * Created by rharter on 7/20/15.
- */
 public class AutoValueGsonExtensionTest {
 
   private JavaFileObject nullable;

@@ -300,8 +300,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-      constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
+      if (entry.getKey().type instanceof ParameterizedTypeName) {
+        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
+            makeType((ParameterizedTypeName) prop.type));
+      } else {
+        TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
+      }
     }
 
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder("GsonTypeAdapter")
