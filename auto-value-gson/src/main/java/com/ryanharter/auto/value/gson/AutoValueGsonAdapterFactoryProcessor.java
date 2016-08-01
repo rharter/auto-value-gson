@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
-import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -33,6 +32,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
@@ -133,13 +133,19 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
     for (int i = 0, elementsSize = elements.size(); i < elementsSize; i++) {
       Element element = elements.get(i);
+      TypeName elementType = rawType(element);
       if (i == 0) {
-        create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", element);
+        create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", elementType);
       } else {
-        create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", element);
+        create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementType);
       }
       ExecutableElement typeAdapterMethod = getTypeAdapterMethod(element);
-      create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, element, gson);
+      List<? extends VariableElement> params = typeAdapterMethod.getParameters();
+      if (params != null && params.size() == 1) {
+        create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, elementType, gson);
+      } else {
+        create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N, ($T) $N)", t, elementType, gson, params.get(1), type);
+      }
     }
     create.nextControlFlow("else");
     create.addStatement("return null");
@@ -149,15 +155,35 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     return factory.build();
   }
 
+  private TypeName rawType(Element element) {
+    TypeName type = TypeName.get(element.asType());
+    if (type instanceof ParameterizedTypeName) {
+      type = ((ParameterizedTypeName) type).rawType;
+    }
+    return type;
+  }
+
   private ExecutableElement getTypeAdapterMethod(Element element) {
+    TypeName type = TypeName.get(element.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName
-        .get(ClassName.get(TypeAdapter.class), TypeName.get(element.asType()));
+        .get(ClassName.get(TypeAdapter.class), type);
     for (ExecutableElement method : ElementFilter.methodsIn(element.getEnclosedElements())) {
       if (method.getModifiers().contains(Modifier.STATIC)
           && method.getModifiers().contains(Modifier.PUBLIC)) {
         TypeName returnType = TypeName.get(method.getReturnType());
         if (returnType.equals(typeAdapterType)) {
           return method;
+        } else if (returnType instanceof ParameterizedTypeName) {
+          ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnType;
+          TypeName argument = paramReturnType.typeArguments.get(0);
+
+          // If the original type uses generics, user's don't have to nest the generic type args
+          if (type instanceof ParameterizedTypeName) {
+            ParameterizedTypeName pTypeName = (ParameterizedTypeName) type;
+            if (pTypeName.rawType.equals(argument)) {
+              return method;
+            }
+          }
         }
       }
     }

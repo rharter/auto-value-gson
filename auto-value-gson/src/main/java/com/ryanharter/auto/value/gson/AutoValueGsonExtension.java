@@ -25,7 +25,11 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -36,6 +40,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
@@ -103,8 +108,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public boolean applicable(Context context) {
     // check that the class contains a public static method returning a TypeAdapter
     TypeElement type = context.autoValueClass();
+    TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
-        ClassName.get(TypeAdapter.class), TypeName.get(type.asType()));
+        ClassName.get(TypeAdapter.class), typeName);
     TypeName returnedTypeAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(Modifier.STATIC)
@@ -132,9 +138,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (returnedTypeAdapter instanceof ParameterizedTypeName) {
       ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
       TypeName argument = paramReturnType.typeArguments.get(0);
-      messager.printMessage(Diagnostic.Kind.WARNING,
-          String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-              + "Skipping GsonTypeAdapter generation.", argument, type));
+
+      // If the original type uses generics, user's don't have to nest the generic type args
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+        if (pTypeName.rawType.equals(argument)) {
+          return true;
+        }
+      } else {
+        messager.printMessage(Diagnostic.Kind.WARNING,
+            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+                + "Skipping GsonTypeAdapter generation.", argument, type));
+      }
     } else {
       messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
           + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
@@ -152,19 +167,32 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName classNameClass = ClassName.get(context.packageName(), className);
     ClassName autoValueClass = ClassName.get(context.autoValueClass());
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties);
+    List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
+    List<TypeVariableName> params = new ArrayList<>(typeParams.size());
+    TypeName superclasstype = ClassName.get(context.packageName(), classToExtend);
+    if (!typeParams.isEmpty()) {
+      for (TypeParameterElement typeParam : typeParams) {
+        params.add(TypeVariableName.get(typeParam));
+      }
+      superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
+    }
 
-    TypeSpec.Builder subclass = TypeSpec.classBuilder(className)
-        .superclass(TypeVariableName.get(classToExtend))
+    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties, params);
+
+    TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
+        .superclass(superclasstype)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types));
+
+    if (!typeParams.isEmpty()) {
+      subclass.addTypeVariables(params);
+    }
 
     if (isFinal) {
       subclass.addModifiers(FINAL);
     } else {
       subclass.addModifiers(ABSTRACT);
     }
-
 
     return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
   }
@@ -223,9 +251,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties) {
+  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
-    ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueClassName);
+    TypeName autoValueTypeName = autoValueClassName;
+    if (!typeParams.isEmpty()) {
+      autoValueTypeName = ParameterizedTypeName.get(autoValueClassName, typeParams.toArray(new TypeName[typeParams.size()]));
+    }
+    ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueTypeName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
 
@@ -234,7 +266,26 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .addModifiers(PUBLIC)
             .addParameter(gsonParam);
 
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+    if (!typeParams.isEmpty()) {
+      ImmutableMap<Property, FieldSpec> parameterizedAdapters = filterParameterizedAdapters(adapters, true);
+
+      ParameterSpec typeAdapter = ParameterSpec
+          .builder(ParameterizedTypeName.get(ClassName.get(TypeToken.class), WildcardTypeName.subtypeOf(autoValueTypeName)), "typeToken")
+          .build();
+      constructor.addParameter(typeAdapter);
+
+      constructor.addStatement("$1T type = ($1T) $2N.getType()", ParameterizedType.class, typeAdapter);
+      constructor.addStatement("$T[] typeArgs = type.getActualTypeArguments()", Type.class);
+      for (Map.Entry<Property, FieldSpec> entry : parameterizedAdapters.entrySet()) {
+        Property prop = entry.getKey();
+        FieldSpec field = entry.getValue();
+        constructor.addStatement("this.$N = ($T) $N.getAdapter($T.get(typeArgs[$L]))", field,
+            field.type, gsonParam, TypeToken.class, typeParams.indexOf(prop.type));
+      }
+    }
+
+    ImmutableMap<Property, FieldSpec> nonparameterizedAdapters = filterParameterizedAdapters(adapters, false);
+    for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
       if (entry.getKey().type instanceof ParameterizedTypeName) {
@@ -247,18 +298,29 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder("GsonTypeAdapter")
+        .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createWriteMethod(autoValueClassName, adapters))
-        .addMethod(createReadMethod(className, autoValueClassName, adapters));
+        .addMethod(createWriteMethod(autoValueTypeName, adapters))
+        .addMethod(createReadMethod(className, autoValueTypeName, adapters));
 
 
     return classBuilder.build();
   }
 
-  public MethodSpec createWriteMethod(ClassName autoValueClassName,
+  private ImmutableMap<Property, FieldSpec> filterParameterizedAdapters(Map<Property, FieldSpec> adapters, boolean parameterized) {
+    ImmutableMap.Builder<Property, FieldSpec> out = new ImmutableMap.Builder<>();
+    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
+      if ((entry.getKey().type instanceof TypeVariableName) == parameterized) {
+        out.put(entry);
+      }
+    }
+    return out.build();
+  }
+
+  public MethodSpec createWriteMethod(TypeName autoValueClassName,
                                       ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
@@ -290,7 +352,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   public MethodSpec createReadMethod(ClassName className,
-                                     ClassName autoValueClassName,
+                                     TypeName autoValueClassName,
                                      ImmutableMap<Property, FieldSpec> adapters) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
@@ -307,7 +369,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(adapters.size());
     for (Property prop : adapters.keySet()) {
-      FieldSpec field = FieldSpec.builder(prop.type, prop.humanName).build();
+      TypeName fieldType = prop.type;
+      FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
       if (field.type.isPrimitive()) {
         String defaultValue = getDefaultPrimitiveValue(field.type);
@@ -358,6 +421,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     StringBuilder format = new StringBuilder("return new ");
     format.append(className.simpleName().replaceAll("\\$", ""));
+    if (autoValueClassName instanceof ParameterizedTypeName) {
+      format.append("<>");
+    }
     format.append("(");
     Iterator<FieldSpec> iterator = fields.values().iterator();
     while (iterator.hasNext()) {

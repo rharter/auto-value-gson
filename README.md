@@ -21,13 +21,41 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
     return new AutoValue_Foo.GsonTypeAdapter(gson);
   }
 }
-
-final Gson gson = new GsonBuilder()
-  .registerTypeAdapterFactory(new AutoValueGsonTypeAdapterFactory())
-  .create();
 ```
 
 Now build your project and de/serialize your Foo.
+
+## The TypeAdapter
+
+To trigger TypeAdapter generation, you need include a non-private static factory method that accepts
+a `Gson` parameter and returns a `TypeAdapter` for your AutoValue type. From within this method you
+can instantiate a new `GsonTypeAdapter` which will have been generated as an inner class of your
+AutoValue generated implementation. 
+
+```java
+@AutoValue public abstract class Foo {
+  // properties...
+  
+  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
+    return new AutoValue_Foo.GsonTypeAdapter(gson);
+  }
+}
+```
+
+If your annotated class uses generics, you'll have to modify your static method a little so
+AutoValue will know how to generate an appropriate adapter. Simply add a `TypeToken` parameter
+and pass it to the generated `GsonTypeAdapter` class.
+
+```java
+@AutoValue public abstract class Foo<A, B, C> {
+  // properties...
+  
+  public static <A, B, C> TypeAdapter<Foo<A, B, C> typeAdapter(Gson gson,
+      TypeToken<? extends Foo<A, B, C> typeToken) {
+    return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
+  }
+}
+```
 
 ## Factory
 
