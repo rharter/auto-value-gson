@@ -646,7 +646,7 @@ public class AutoValueGsonExtensionTest {
         + "        }\n"
         + "      }\n"
         + "      jsonReader.endObject();\n"
-        + "      return new AutoValue_Foo(c, a, b, d);\n"
+        + "      return new AutoValue_Foo<>(c, a, b, d);\n"
         + "    }\n"
         + "  }\n"
         + "}");

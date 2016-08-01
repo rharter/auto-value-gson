@@ -421,6 +421,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     StringBuilder format = new StringBuilder("return new ");
     format.append(className.simpleName().replaceAll("\\$", ""));
+    if (autoValueClassName instanceof ParameterizedTypeName) {
+      format.append("<>");
+    }
     format.append("(");
     Iterator<FieldSpec> iterator = fields.values().iterator();
     while (iterator.hasNext()) {
