@@ -9,7 +9,7 @@ import com.google.gson.reflect.TypeToken;
   public abstract int status();
   public abstract T data();
 
-  public static TypeAdapter<WebResponse> typeAdapter(Gson gson, TypeToken<? extends WebResponse> typeToken) {
+  public static <T> TypeAdapter<WebResponse<T>> typeAdapter(Gson gson, TypeToken<? extends WebResponse<T>> typeToken) {
     return new AutoValue_WebResponse.GsonTypeAdapter(gson, typeToken);
   }
 }
