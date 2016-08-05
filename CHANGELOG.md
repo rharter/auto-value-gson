@@ -1,12 +1,18 @@
 # Change Log
 
-## version 0.4.1 (2016-08-01)
+## Version 0.4.2 (2016-08-05)
+
+#### Supports: AutoValue: 1.3-rc1
+
+* Bumps version number to fix release.
+
+## Version 0.4.1 (2016-08-01)
 
 #### Supports: AutoValue: 1.3-rc1
 
 * Adds support for generic AutoValue types!!
 
-## version 0.4.0 (2016-07-28)
+## Version 0.4.0 (2016-07-28)
 
 #### Supports: AutoValue: 1.3-rc1
 
