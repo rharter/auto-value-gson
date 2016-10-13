@@ -39,8 +39,10 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.annotations.SerializedName;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.common.collect.ImmutableMap;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
+        + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
         + "@AutoValue public abstract class Test {\n"
@@ -58,23 +60,26 @@ public class AutoValueGsonExtensionTest {
         // Nullable type
         + "@Nullable abstract String e();\n"
         // Parametrized type, multiple parameters
-        + "public abstract Map<String, Number> f();\n"
+        + "public abstract ImmutableMap<String, Number> f();\n"
         // Parametrized type, single parameter
         + "public abstract Set<String> g();\n"
         // Nested parameterized type
         + "public abstract Map<String, Set<String>> h();\n"
         // SerializedName with alternate
-        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract String i();\n" +
+        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract String i();\n"
+        // Nullable collection type
+        + "@Nullable public abstract List<String> j();\n" +
         "  @AutoValue.Builder public static abstract class Builder {\n" +
         "    public abstract Builder a(String a);\n" +
         "    public abstract Builder b(int[] b);\n" +
         "    public abstract Builder c(int c);\n" +
         "    public abstract Builder d(String d);\n" +
         "    public abstract Builder e(String e);\n" +
-        "    public abstract Builder f(Map<String, Number> f);\n" +
+        "    public abstract Builder f(ImmutableMap<String, Number> f);\n" +
         "    public abstract Builder g(Set<String> g);\n" +
         "    public abstract Builder h(Map<String, Set<String>> h);\n" +
         "    public abstract Builder i(String i);\n" +
+        "    public abstract Builder j(List<String> j);\n" +
         "    public abstract Test build();\n" +
         "  }\n"
         + "}\n"
@@ -83,6 +88,7 @@ public class AutoValueGsonExtensionTest {
     JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
         + "package test;\n"
         + "\n"
+        + "import com.google.common.collect.ImmutableMap;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
         + "import com.google.gson.reflect.TypeToken;\n"
@@ -94,12 +100,14 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.Number;\n"
         + "import java.lang.Override;\n"
         + "import java.lang.String;\n"
+        + "import java.util.Collections;\n"
+        + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
         + "\n"
         + "final class AutoValue_Test extends $AutoValue_Test {\n"
-        + "  AutoValue_Test(String a, int[] b, int c, String d, String e, Map<String, Number> f, Set<String> g, Map<String, Set<String>> h, String i) {\n"
-        + "    super(a, b, c, d, e, f, g, h, i);\n"
+        + "  AutoValue_Test(String a, int[] b, int c, String d, String e, ImmutableMap<String, Number> f, Set<String> g, Map<String, Set<String>> h, String i, List<String> j) {\n"
+        + "    super(a, b, c, d, e, f, g, h, i, j);\n"
         + "  }\n"
         + "\n"
         + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
@@ -108,20 +116,22 @@ public class AutoValueGsonExtensionTest {
         + "    private final TypeAdapter<Integer> cAdapter;\n"
         + "    private final TypeAdapter<String> dAdapter;\n"
         + "    private final TypeAdapter<String> eAdapter;\n"
-        + "    private final TypeAdapter<Map<String, Number>> fAdapter;\n"
+        + "    private final TypeAdapter<ImmutableMap<String, Number>> fAdapter;\n"
         + "    private final TypeAdapter<Set<String>> gAdapter;\n"
         + "    private final TypeAdapter<Map<String, Set<String>>> hAdapter;\n"
         + "    private final TypeAdapter<String> iAdapter;\n"
+        + "    private final TypeAdapter<List<String>> jAdapter;\n"
         + "    public GsonTypeAdapter(Gson gson) {\n"
         + "      this.aAdapter = gson.getAdapter(String.class);\n"
         + "      this.bAdapter = gson.getAdapter(int[].class);\n"
         + "      this.cAdapter = gson.getAdapter(Integer.class);\n"
         + "      this.dAdapter = gson.getAdapter(String.class);\n"
         + "      this.eAdapter = gson.getAdapter(String.class);\n"
-        + "      this.fAdapter = gson.getAdapter(new TypeToken<Map<String, Number>>(){});\n"
+        + "      this.fAdapter = gson.getAdapter(new TypeToken<ImmutableMap<String, Number>>(){});\n"
         + "      this.gAdapter = gson.getAdapter(new TypeToken<Set<String>>(){});\n"
         + "      this.hAdapter = gson.getAdapter(new TypeToken<Map<String, Set<String>>>(){});\n"
         + "      this.iAdapter = gson.getAdapter(String.class);\n"
+        + "      this.jAdapter = gson.getAdapter(new TypeToken<List<String>>(){});\n"
         + "    }\n"
         + "    @Override\n"
         + "    public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
@@ -146,6 +156,10 @@ public class AutoValueGsonExtensionTest {
         + "      hAdapter.write(jsonWriter, object.h());\n"
         + "      jsonWriter.name(\"_I\");\n"
         + "      iAdapter.write(jsonWriter, object.i());\n"
+        + "      if (object.j() != null) {\n"
+        + "        jsonWriter.name(\"j\");\n"
+        + "        jAdapter.write(jsonWriter, object.j());\n"
+        + "      }\n"
         + "      jsonWriter.endObject();\n"
         + "    }\n"
         + "    @Override\n"
@@ -156,10 +170,11 @@ public class AutoValueGsonExtensionTest {
         + "      int c = 0;\n"
         + "      String d = null;\n"
         + "      String e = null;\n"
-        + "      Map<String, Number> f = null;\n"
-        + "      Set<String> g = null;\n"
-        + "      Map<String, Set<String>> h = null;\n"
+        + "      ImmutableMap<String, Number> f = ImmutableMap.of();\n"
+        + "      Set<String> g = Collections.emptySet();\n"
+        + "      Map<String, Set<String>> h = Collections.emptyMap();\n"
         + "      String i = null;\n"
+        + "      List<String> j = null;\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
         + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
@@ -205,13 +220,17 @@ public class AutoValueGsonExtensionTest {
         + "            i = iAdapter.read(jsonReader);\n"
         + "            break;\n"
         + "          }\n"
+        + "          case \"j\": {\n"
+        + "            j = jAdapter.read(jsonReader);\n"
+        + "            break;\n"
+        + "          }\n"
         + "          default: {\n"
         + "            jsonReader.skipValue();\n"
         + "          }\n"
         + "        }\n"
         + "      }\n"
         + "      jsonReader.endObject();\n"
-        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h, i);\n"
+        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h, i, j);\n"
         + "    }\n"
         + "  }\n"
         + "}"
