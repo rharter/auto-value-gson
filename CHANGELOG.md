@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.4.3 (2016-10-17)
+
+#### Supports: AutoValue 1.3
+
+* Updates AutoValue dependency to 1.3
+* Initializes known non-nullable collection types to empty collections. (#71)
+* Use `getDeclaredClass()` instead of `getClass()` on enums. (#72)
+
 ## Version 0.4.2 (2016-08-05)
 
 #### Supports: AutoValue: 1.3-rc1
