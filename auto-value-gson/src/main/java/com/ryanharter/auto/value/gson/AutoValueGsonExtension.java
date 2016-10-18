@@ -367,7 +367,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addParameter(jsonReader)
         .addException(IOException.class);
 
-    ClassName token = ClassName.get(JsonToken.NULL.getClass());
+    ClassName token = ClassName.get(JsonToken.NULL.getDeclaringClass());
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
