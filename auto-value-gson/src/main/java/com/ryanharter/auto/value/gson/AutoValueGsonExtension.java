@@ -1,9 +1,11 @@
 package com.ryanharter.auto.value.gson;
 
+import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.base.Defaults;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -30,17 +32,20 @@ import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
@@ -372,16 +377,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       TypeName fieldType = prop.type;
       FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
-      if (field.type.isPrimitive()) {
-        String defaultValue = getDefaultPrimitiveValue(field.type);
-        if (defaultValue != null) {
-          readMethod.addStatement("$T $N = $L", field.type, field, defaultValue);
-        } else {
-          readMethod.addStatement("$T $N = $T.valueOf(null)", field.type, field, field.type.box());
-        }
+      CodeBlock defaultValue = getDefaultValue(prop, field);
+      readMethod.addCode("$[$T $N = ", field.type, field);
+      if (defaultValue != null) {
+        readMethod.addCode(defaultValue);
       } else {
-        readMethod.addStatement("$T $N = null", field.type, field);
+        readMethod.addCode("$L", "null");
       }
+      readMethod.addCode(";\n$]");
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -435,6 +438,49 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement(format.toString(), fields.values().toArray());
 
     return readMethod.build();
+  }
+
+  /** Returns a default value for initializing well-known types, or else {@code null}. */
+  private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
+    if (field.type.isPrimitive()) {
+      String defaultValue = getDefaultPrimitiveValue(field.type);
+      if (defaultValue != null) {
+        return CodeBlock.of("$L", defaultValue);
+      } else {
+        return CodeBlock.of("$T.valueOf(null)", field.type, field, field.type.box());
+      }
+    }
+    if (prop.nullable()) {
+      return null;
+    }
+    TypeMirror type = prop.element.getReturnType();
+    if (type.getKind() != TypeKind.DECLARED) {
+      return null;
+    }
+    TypeElement typeElement = MoreTypes.asTypeElement(type);
+    if (typeElement == null) {
+      return null;
+    }
+    try {
+      Class<?> clazz = Class.forName(typeElement.getQualifiedName().toString());
+      if (clazz.isAssignableFrom(List.class)) {
+        return CodeBlock.of("$T.emptyList()", TypeName.get(Collections.class));
+      } else if (clazz.isAssignableFrom(Map.class)) {
+        return CodeBlock.of("$T.emptyMap()", TypeName.get(Collections.class));
+      } else if (clazz.isAssignableFrom(Set.class)) {
+        return CodeBlock.of("$T.emptySet()", TypeName.get(Collections.class));
+      } else if (clazz.isAssignableFrom(ImmutableList.class)) {
+        return CodeBlock.of("$T.of()", TypeName.get(ImmutableList.class));
+      } else if (clazz.isAssignableFrom(ImmutableMap.class)) {
+        return CodeBlock.of("$T.of()", TypeName.get(ImmutableMap.class));
+      } else if (clazz.isAssignableFrom(ImmutableSet.class)) {
+        return CodeBlock.of("$T.of()", TypeName.get(ImmutableSet.class));
+      } else {
+        return null;
+      }
+    } catch (ClassNotFoundException e) {
+      return null;
+    }
   }
 
   /**
