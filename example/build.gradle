@@ -3,12 +3,12 @@ apply plugin: "net.ltgt.apt"
 
 dependencies {
     compile 'com.google.code.gson:gson:2.6.2'
-    compileOnly 'com.google.auto.value:auto-value:1.2'
-    apt 'com.google.auto.value:auto-value:1.2'
+    compileOnly 'com.google.auto.value:auto-value:1.3'
+    apt 'com.google.auto.value:auto-value:1.3'
     apt project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
 
     testCompile 'junit:junit:4.12'
-    testCompileOnly 'com.google.auto.value:auto-value:1.2'
-    testApt 'com.google.auto.value:auto-value:1.2'
+    testCompileOnly 'com.google.auto.value:auto-value:1.3'
+    testApt 'com.google.auto.value:auto-value:1.3'
 }
