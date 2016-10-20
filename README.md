@@ -50,8 +50,8 @@ and pass it to the generated `GsonTypeAdapter` class.
 @AutoValue public abstract class Foo<A, B, C> {
   // properties...
   
-  public static <A, B, C> TypeAdapter<Foo<A, B, C> typeAdapter(Gson gson,
-      TypeToken<? extends Foo<A, B, C> typeToken) {
+  public static <A, B, C> TypeAdapter<Foo<A, B, C>> typeAdapter(Gson gson,
+      TypeToken<? extends Foo<A, B, C>> typeToken) {
     return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
   }
 }
