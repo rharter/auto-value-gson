@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.4.4 (2016-10-25)
+
+#### Supports: AutoValue 1.3
+
+* Adds better null support. (fixes #23, #50, #67)
+
 ## Version 0.4.3 (2016-10-17)
 
 #### Supports: AutoValue 1.3
