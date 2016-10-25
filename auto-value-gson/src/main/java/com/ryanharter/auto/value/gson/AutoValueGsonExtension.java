@@ -336,20 +336,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addParameter(annotatedParam)
         .addException(IOException.class);
 
+    writeMethod.beginControlFlow("if ($N == null)", annotatedParam);
+    writeMethod.addStatement("$N.nullValue()", jsonWriter);
+    writeMethod.addStatement("return");
+    writeMethod.endControlFlow();
+
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
 
-      if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.methodName);
-        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
-        writeMethod.endControlFlow();
-      } else {
-        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
-      }
+      writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
+      writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -368,6 +366,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addException(IOException.class);
 
     ClassName token = ClassName.get(JsonToken.NULL.getDeclaringClass());
+
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("return null");
+    readMethod.endControlFlow();
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
@@ -391,12 +394,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
-
-    // check if JSON field value is NULL
-    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
-    readMethod.addStatement("$N.skipValue()", jsonReader);
-    readMethod.addStatement("continue");
-    readMethod.endControlFlow();
 
     readMethod.beginControlFlow("switch ($N)", name);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
