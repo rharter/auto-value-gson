@@ -378,8 +378,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
         }
       } else if (prop.type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
-                makeType(prop.type));
+        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam, makeType(prop.type));
       } else {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
         constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
