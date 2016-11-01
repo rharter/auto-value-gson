@@ -378,29 +378,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
         }
       } else if (prop.type instanceof ParameterizedTypeName) {
-        if (prop.typeAdapter != null) {
-          if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
-            constructor.addStatement("this.$N = new $T().<$T>create($N, $L)", field, TypeName.get(prop.typeAdapter),
-                    prop.type, gsonParam, makeType(prop.type));
-          } else {
-            constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
-          }
-        } else {
-          constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
-                  makeType((ParameterizedTypeName) prop.type));
-        }
+        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
+                makeType(prop.type));
       } else {
-        if (prop.typeAdapter != null) {
-          if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
-            constructor.addStatement("this.$N = new $T().<$T>create($N, $T.class)", field, TypeName.get(prop.typeAdapter),
-                    prop.type, gsonParam, prop.type);
-          } else {
-            constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
-          }
-        } else {
-          TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
-        }
+        TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
       }
     }
 
