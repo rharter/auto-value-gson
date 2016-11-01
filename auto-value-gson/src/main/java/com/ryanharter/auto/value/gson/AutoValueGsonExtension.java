@@ -42,6 +42,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -66,6 +68,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final ExecutableElement element;
     final TypeName type;
     final ImmutableSet<String> annotations;
+    final TypeName typeAdapter;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -74,6 +77,42 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
+
+      TypeMirror typeAdapterAnnotation = getAnnotationValue(element, GsonTypeAdapter.class);
+      if (typeAdapterAnnotation == null) {
+        typeAdapter = null;
+      } else {
+        typeAdapter = TypeName.get(typeAdapterAnnotation);
+      }
+    }
+
+    public static TypeMirror getAnnotationValue(Element foo, Class<?> annotation) {
+      AnnotationMirror am = getAnnotationMirror(foo, annotation);
+      if (am == null) {
+        return null;
+      }
+      AnnotationValue av = getAnnotationValue(am, "value");
+      return av == null ? null : (TypeMirror) av.getValue();
+    }
+
+    private static AnnotationMirror getAnnotationMirror(Element typeElement, Class<?> clazz) {
+      String clazzName = clazz.getName();
+      for (AnnotationMirror m : typeElement.getAnnotationMirrors()) {
+        if (m.getAnnotationType().toString().equals(clazzName)) {
+          return m;
+        }
+      }
+      return null;
+    }
+
+    private static AnnotationValue getAnnotationValue(AnnotationMirror annotationMirror, String key) {
+      Map<? extends ExecutableElement, ? extends AnnotationValue> values = annotationMirror.getElementValues();
+      for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : values.entrySet()) {
+        if (entry.getKey().getSimpleName().toString().equals(key)) {
+          return entry.getValue();
+        }
+      }
+      return null;
     }
 
     public String serializedName() {
@@ -327,7 +366,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      if (prop.type instanceof ParameterizedTypeName) {
+      if (prop.typeAdapter != null) {
+        constructor.addStatement("this.$N = new $T()", field, prop.typeAdapter);
+      } else if (prop.type instanceof ParameterizedTypeName) {
         constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
             makeType((ParameterizedTypeName) prop.type));
       } else {
