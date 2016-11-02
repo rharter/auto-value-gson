@@ -86,7 +86,7 @@ Then you simply need to register the Factory with Gson.
 ```java
 Gson gson = new GsonBuilder()
     .registerTypeAdapterFactory(MyAdapterFactory.create())
-    .build();
+    .create();
 ```
 
 ## Download
