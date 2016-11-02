@@ -14,7 +14,6 @@ import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.SerializedName;
-import com.google.gson.internal.$Gson$Types;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
@@ -307,9 +306,20 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       for (Map.Entry<Property, FieldSpec> entry : parameterizedAdapters.entrySet()) {
         Property prop = entry.getKey();
         FieldSpec field = entry.getValue();
-        constructor.addCode("this.$N = ($T) $N.getAdapter($T.get(", field, field.type, gsonParam, TypeToken.class);
-        buildParameterizedToken(constructor, prop.type, typeParams, true);
-        constructor.addCode("));\n");
+        constructor.addCode("this.$N = ($T) $N.getAdapter(", field, field.type, gsonParam);
+        if (prop.type instanceof ParameterizedTypeName) {
+          ParameterizedTypeName paramType = (ParameterizedTypeName) prop.type;
+          constructor.addCode("$T.getParameterized($T.class", TypeToken.class, paramType.rawType);
+          for (TypeName type : paramType.typeArguments) {
+            buildParameterizedTypeArguments(constructor, type, typeParams);
+          }
+          constructor.addCode(")");
+        } else if (prop.type instanceof TypeVariableName) {
+          constructor.addCode("$T.get(typeArgs[$L])", TypeToken.class, typeParams.indexOf(prop.type));
+        } else {
+          constructor.addCode("$T.get($T.class)", TypeToken.class, prop.type);
+        }
+        constructor.addCode(");\n");
       }
     }
 
@@ -343,18 +353,16 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return classBuilder.build();
   }
 
-  private static void buildParameterizedToken(MethodSpec.Builder constructor, TypeName typeArg,
-                                              List<TypeVariableName> typeParams, boolean first) {
-    if (!first) {
-      constructor.addCode(", ");
-    }
-    if (typeArg instanceof ParameterizedTypeName) {
+  private static void buildParameterizedTypeArguments(MethodSpec.Builder constructor, TypeName typeArg,
+                                                      List<TypeVariableName> typeParams) {
+    constructor.addCode(", ");
+    if (typeArg instanceof ParameterizedTypeName) { // type argument itself can be parameterized
       ParameterizedTypeName paramTypeArg = (ParameterizedTypeName) typeArg;
-      constructor.addCode("$T.newParameterizedTypeWithOwner(null, $T.class", $Gson$Types.class, paramTypeArg.rawType);
+      constructor.addCode("$T.getParameterized($T.class", TypeToken.class, paramTypeArg.rawType);
       for (TypeName type : paramTypeArg.typeArguments) {
-        buildParameterizedToken(constructor, type, typeParams, false);
+        buildParameterizedTypeArguments(constructor, type, typeParams);
       }
-      constructor.addCode(")");
+      constructor.addCode(").getType()");
     } else if (typeArg instanceof TypeVariableName) {
       constructor.addCode("typeArgs[$L]", typeParams.indexOf(typeArg));
     } else {
