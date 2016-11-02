@@ -183,7 +183,7 @@ public class AutoValueGsonExtensionTest {
         + "      this.jAdapter = gson.getAdapter(new TypeToken<List<String>>(){});\n"
         + "      this.kAdapter = new Test.TestTypeAdapter();\n"
         + "      this.lAdapter = new Test.TestListTypeAdapter();\n"
-        + "      this.mAdapter = new Test.TestTypeAdapterFactory().create(gson, new TypeToken<String>(){});\n"
+        + "      this.mAdapter = new Test.TestTypeAdapterFactory().create(gson, TypeToken.get(String.class));\n"
         + "      this.nAdapter = new Test.TestTypeAdapterFactory().create(gson, new TypeToken<List<String>>(){});\n"
         + "    }\n"
         + "    public GsonTypeAdapter setDefaultA(String defaultA) {\n"

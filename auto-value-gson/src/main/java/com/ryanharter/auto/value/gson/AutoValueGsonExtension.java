@@ -651,7 +651,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private CodeBlock makeType(TypeName type) {
     CodeBlock.Builder block = CodeBlock.builder();
-    block.add("new $T<$T>(){}", TypeToken.class, type);
+    if (type instanceof ParameterizedTypeName) {
+      block.add("new $T<$T>(){}", TypeToken.class, type);
+    } else {
+      block.add("$T.get($T.class)", TypeToken.class, type);
+    }
     return block.build();
   }
 }
