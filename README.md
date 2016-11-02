@@ -42,14 +42,23 @@ AutoValue generated implementation.
 }
 ```
 
+## Generics support
+
 If your annotated class uses generics, you'll have to modify your static method a little so
 AutoValue will know how to generate an appropriate adapter. Simply add a `TypeToken` parameter
 and pass it to the generated `GsonTypeAdapter` class.
 
+To have support for fields with generic parameters (eg. `List<B>`) you need to upgrade your Gson
+dependency to at least **2.8.0**, which introduces the helper `TypeToken.getParameterized()`
+see [Gson Changelog](https://github.com/google/gson/blob/master/CHANGELOG.md#version-28).
+
 ```java
 @AutoValue public abstract class Foo<A, B, C> {
-  // properties...
-  
+
+  abstract A data();
+  abstract List<B> dataList();
+  abstract Map<String, List<C>> dataMap();
+
   public static <A, B, C> TypeAdapter<Foo<A, B, C>> typeAdapter(Gson gson,
       TypeToken<? extends Foo<A, B, C>> typeToken) {
     return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
@@ -101,6 +110,12 @@ provided 'com.ryanharter.auto.value:auto-value-gson:0.4.4'
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
+
+You will also need a normal runtime dependency for gson itself.
+
+```groovy
+compile 'com.google.code.gson:gson:2.8.0'
+```
 
 ## License
 
