@@ -3,7 +3,6 @@ package com.ryanharter.auto.value.gson;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Defaults;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -94,6 +93,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
+    public String defaultValue() {
+      DefaultValue defaultVal = element.getAnnotation(DefaultValue.class);
+      if (defaultVal != null) {
+        return defaultVal.value();
+      } else {
+        return null;
+      }
+    }
+
     public Boolean nullable() {
       return annotations.contains("Nullable");
     }
@@ -107,6 +115,23 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
 
       return builder.build();
+    }
+
+    @Override public String toString() {
+      return "Property{"
+          + "methodName='"
+          + methodName
+          + '\''
+          + ", humanName='"
+          + humanName
+          + '\''
+          + ", element="
+          + element
+          + ", type="
+          + type
+          + ", annotations="
+          + annotations
+          + '}';
     }
   }
 
@@ -225,26 +250,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  private List<FieldSpec> createDefaultValueFields(ImmutableMap<Property, FieldSpec> adapters) {
-    List<FieldSpec> fields = new ArrayList<>(adapters.size());
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-      Property prop = entry.getKey();
-      FieldSpec fieldSpec = FieldSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop), PRIVATE).build();
-      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec);
-      if (defaultValue == null) {
-        defaultValue = CodeBlock.of("null");
-      }
-      fields.add(fieldSpec.toBuilder()
-              .initializer(defaultValue)
-              .build());
-    }
-    return fields;
-  }
-
-  private String upperCamelizeHumanName(Property prop) {
-    return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, prop.humanName);
-  }
-
   MethodSpec generateConstructor(Map<String, TypeName> properties) {
     List<ParameterSpec> params = Lists.newArrayList();
     for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
@@ -286,7 +291,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueTypeName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
-    List<FieldSpec> defaultValues = createDefaultValueFields(adapters);
 
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
@@ -336,16 +340,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
-    ClassName gsonTypeAdapterName = className.nestedClass("GsonTypeAdapter");
-
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
+    TypeSpec.Builder classBuilder = TypeSpec.classBuilder("GsonTypeAdapter")
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
-        .addFields(defaultValues)
         .addMethod(constructor.build())
-        .addMethods(createDefaultMethods(gsonTypeAdapterName, adapters))
         .addMethod(createWriteMethod(autoValueTypeName, adapters))
         .addMethod(createReadMethod(className, autoValueTypeName, adapters));
 
@@ -394,24 +394,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
     return false;
-  }
-
-  public List<MethodSpec> createDefaultMethods(ClassName gsonTypeAdapterName, ImmutableMap<Property, FieldSpec> adapters) {
-    List<MethodSpec> methodSpecs = new ArrayList<>(adapters.size());
-    for (Property prop : adapters.keySet()) {
-      ParameterSpec valueParam = ParameterSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop)).build();
-
-      methodSpecs.add(MethodSpec.methodBuilder("setDefault" + upperCamelizeHumanName(prop))
-              .addModifiers(PUBLIC)
-              .addParameter(valueParam)
-              .returns(gsonTypeAdapterName)
-              .addCode(CodeBlock.builder()
-                      .addStatement("this.default$L = $N", upperCamelizeHumanName(prop), valueParam)
-                      .addStatement("return this")
-                      .build())
-              .build());
-    }
-    return methodSpecs;
   }
 
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
@@ -469,7 +451,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       TypeName fieldType = prop.type;
       FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
-      readMethod.addStatement("$T $N = this.default$L", field.type, field.name, upperCamelizeHumanName(prop));
+      CodeBlock defaultValue = getDefaultValue(prop, field);
+      readMethod.addCode("$[$T $N = ", field.type, field);
+      if (defaultValue != null) {
+        readMethod.addCode(defaultValue);
+      } else {
+        readMethod.addCode("$L", "null");
+      }
+      readMethod.addCode(";\n$]");
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -521,6 +510,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
   private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
+    String defaultValueFromAnnotation = prop.defaultValue();
+    if (defaultValueFromAnnotation != null) {
+      if (field.type.isPrimitive()) {
+        return CodeBlock.of("$L", defaultValueFromAnnotation);
+      } else if (field.type.isBoxedPrimitive()) {
+        return CodeBlock.of("$T.valueOf($L)");
+      } else if (ClassName.get(String.class).equals(field.type)) {
+        return CodeBlock.of("$S", defaultValueFromAnnotation);
+      } else {
+        throw new IllegalStateException("Only builtin types are supported from @DefaultValue annotations! Found " + defaultValueFromAnnotation + " on " + prop);
+      }
+    }
     if (field.type.isPrimitive()) {
       String defaultValue = getDefaultPrimitiveValue(field.type);
       if (defaultValue != null) {
