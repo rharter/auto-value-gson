@@ -93,6 +93,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
+    public String defaultValue() {
+      DefaultValue defaultVal = element.getAnnotation(DefaultValue.class);
+      if (defaultVal != null) {
+        return defaultVal.value();
+      } else {
+        return null;
+      }
+    }
+
     public Boolean nullable() {
       return annotations.contains("Nullable");
     }
@@ -106,6 +115,23 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
 
       return builder.build();
+    }
+
+    @Override public String toString() {
+      return "Property{"
+          + "methodName='"
+          + methodName
+          + '\''
+          + ", humanName='"
+          + humanName
+          + '\''
+          + ", element="
+          + element
+          + ", type="
+          + type
+          + ", annotations="
+          + annotations
+          + '}';
     }
   }
 
@@ -484,6 +510,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
   private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
+    String defaultValueFromAnnotation = prop.defaultValue();
+    if (defaultValueFromAnnotation != null) {
+      if (field.type.isPrimitive()) {
+        return CodeBlock.of("$L", defaultValueFromAnnotation);
+      } else if (field.type.isBoxedPrimitive()) {
+        return CodeBlock.of("$T.valueOf($L)");
+      } else if (ClassName.get(String.class).equals(field.type)) {
+        return CodeBlock.of("$S", defaultValueFromAnnotation);
+      } else {
+        throw new IllegalStateException("Only builtin types are supported from @DefaultValue annotations! Found " + defaultValueFromAnnotation + " on " + prop);
+      }
+    }
     if (field.type.isPrimitive()) {
       String defaultValue = getDefaultPrimitiveValue(field.type);
       if (defaultValue != null) {

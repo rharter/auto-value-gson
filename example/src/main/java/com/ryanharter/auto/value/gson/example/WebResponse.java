@@ -5,10 +5,12 @@ import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 
+import com.ryanharter.auto.value.gson.DefaultValue;
 import java.util.List;
 import java.util.Map;
 
 @AutoValue public abstract class WebResponse<T> {
+  @DefaultValue("200")
   public abstract int status();
   public abstract T data();
   public abstract List<T> dataList();
