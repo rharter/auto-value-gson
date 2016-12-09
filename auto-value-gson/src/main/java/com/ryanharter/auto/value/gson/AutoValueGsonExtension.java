@@ -41,7 +41,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -49,6 +52,7 @@ import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -66,6 +70,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final ExecutableElement element;
     final TypeName type;
     final ImmutableSet<String> annotations;
+    final TypeMirror typeAdapter;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -74,6 +79,37 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
+
+      typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
+    }
+
+    public static TypeMirror getAnnotationValue(Element foo, Class<?> annotation) {
+      AnnotationMirror am = getAnnotationMirror(foo, annotation);
+      if (am == null) {
+        return null;
+      }
+      AnnotationValue av = getAnnotationValue(am, "value");
+      return av == null ? null : (TypeMirror) av.getValue();
+    }
+
+    private static AnnotationMirror getAnnotationMirror(Element typeElement, Class<?> clazz) {
+      String clazzName = clazz.getName();
+      for (AnnotationMirror m : typeElement.getAnnotationMirrors()) {
+        if (m.getAnnotationType().toString().equals(clazzName)) {
+          return m;
+        }
+      }
+      return null;
+    }
+
+    private static AnnotationValue getAnnotationValue(AnnotationMirror annotationMirror, String key) {
+      Map<? extends ExecutableElement, ? extends AnnotationValue> values = annotationMirror.getElementValues();
+      for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : values.entrySet()) {
+        if (entry.getKey().getSimpleName().toString().equals(key)) {
+          return entry.getValue();
+        }
+      }
+      return null;
     }
 
     public String serializedName() {
@@ -183,7 +219,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
     }
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, properties, params);
+    TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, properties, params);
 
     TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
         .superclass(superclasstype)
@@ -277,7 +313,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
+  public TypeSpec createTypeAdapter(Context context, ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     TypeName autoValueTypeName = autoValueClassName;
     if (!typeParams.isEmpty()) {
@@ -323,13 +359,26 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
+    ProcessingEnvironment processingEnvironment = context.processingEnvironment();
+    TypeMirror typeAdapterFactory = processingEnvironment
+            .getElementUtils()
+            .getTypeElement("com.google.gson.TypeAdapterFactory")
+            .asType();
+    Types typeUtils = processingEnvironment.getTypeUtils();
+
     ImmutableMap<Property, FieldSpec> nonparameterizedAdapters = filterParameterizedAdapters(adapters, false);
     for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
-      if (prop.type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam,
-            makeType((ParameterizedTypeName) prop.type));
+      if (prop.typeAdapter != null) {
+        if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
+          constructor.addStatement("this.$N = new $T().create($N, $L)", field, TypeName.get(prop.typeAdapter),
+                  gsonParam, makeType(prop.type));
+        } else {
+          constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
+        }
+      } else if (prop.type instanceof ParameterizedTypeName) {
+        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam, makeType(prop.type));
       } else {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
         constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
@@ -600,9 +649,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return valueString;
   }
 
-  private CodeBlock makeType(ParameterizedTypeName type) {
+  private CodeBlock makeType(TypeName type) {
     CodeBlock.Builder block = CodeBlock.builder();
-    block.add("new $T<$T>(){}", TypeToken.class, type);
+    if (type instanceof ParameterizedTypeName) {
+      block.add("new $T<$T>(){}", TypeToken.class, type);
+    } else {
+      block.add("$T.get($T.class)", TypeToken.class, type);
+    }
     return block.build();
   }
 }
