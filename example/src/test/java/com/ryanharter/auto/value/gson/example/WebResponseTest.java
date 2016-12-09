@@ -1,19 +1,19 @@
 package com.ryanharter.auto.value.gson.example;
 
-import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class WebResponseTest {
 
   @Test public void handlesBasicTypes() {
-    String json = "{\"status\":200,\"data\":\"string\"}";
+    String json = "{\"status\":200,\"data\":\"string\"," +
+        "\"dataList\":[\"string\"]," +
+        "\"dataMap\":{\"key\":[\"string\"]}}";
     Gson gson = new GsonBuilder()
         .registerTypeAdapterFactory(SampleAdapterFactory.create())
         .create();
@@ -21,11 +21,15 @@ public class WebResponseTest {
     WebResponse<String> response = gson.fromJson(json, responseType);
 
     assertEquals("string", response.data());
+    assertEquals("string", response.dataList().get(0));
+    assertEquals("string", response.dataMap().get("key").get(0));
     assertEquals(200, response.status());
   }
 
   @Test public void handlesComplexTypes() {
-    String json = "{\"status\":200,\"data\":{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}}";
+    String json = "{\"status\":200,\"data\":{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}, " +
+        "\"dataList\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]," +
+        "\"dataMap\":{\"key\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]}}";
     Gson gson = new GsonBuilder()
         .registerTypeAdapterFactory(SampleAdapterFactory.create())
         .create();
@@ -34,6 +38,8 @@ public class WebResponseTest {
 
     User expected = User.with("Ryan", "Harter");
     assertEquals(expected, response.data());
+    assertEquals(expected, response.dataList().get(0));
+    assertEquals(expected, response.dataMap().get("key").get(0));
   }
 
 }
