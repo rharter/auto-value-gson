@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.4.5 (2016-12-08)
+
+* Adds support for custom field adapters (#83)
+* Implements support for default values. (#84)
+* Handle parameterized generic fields. (#66)
+
 ## Version 0.4.4 (2016-10-25)
 
 #### Supports: AutoValue 1.3
