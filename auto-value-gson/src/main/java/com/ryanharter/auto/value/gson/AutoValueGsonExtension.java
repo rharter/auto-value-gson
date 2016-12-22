@@ -330,7 +330,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .addParameter(gsonParam);
 
     if (!typeParams.isEmpty()) {
-      ImmutableMap<Property, FieldSpec> parameterizedAdapters = filterParameterizedAdapters(adapters, true);
 
       ParameterSpec typeAdapter = ParameterSpec
           .builder(ParameterizedTypeName.get(ClassName.get(TypeToken.class), WildcardTypeName.subtypeOf(autoValueTypeName)), "typeToken")
@@ -339,24 +338,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       constructor.addStatement("$1T type = ($1T) $2N.getType()", ParameterizedType.class, typeAdapter);
       constructor.addStatement("$T[] typeArgs = type.getActualTypeArguments()", Type.class);
-      for (Map.Entry<Property, FieldSpec> entry : parameterizedAdapters.entrySet()) {
-        Property prop = entry.getKey();
-        FieldSpec field = entry.getValue();
-        constructor.addCode("this.$N = ($T) $N.getAdapter(", field, field.type, gsonParam);
-        if (prop.type instanceof ParameterizedTypeName) {
-          ParameterizedTypeName paramType = (ParameterizedTypeName) prop.type;
-          constructor.addCode("$T.getParameterized($T.class", TypeToken.class, paramType.rawType);
-          for (TypeName type : paramType.typeArguments) {
-            buildParameterizedTypeArguments(constructor, type, typeParams);
-          }
-          constructor.addCode(")");
-        } else if (prop.type instanceof TypeVariableName) {
-          constructor.addCode("$T.get(typeArgs[$L])", TypeToken.class, typeParams.indexOf(prop.type));
-        } else {
-          constructor.addCode("$T.get($T.class)", TypeToken.class, prop.type);
-        }
-        constructor.addCode(");\n");
-      }
     }
 
     ProcessingEnvironment processingEnvironment = context.processingEnvironment();
@@ -366,19 +347,24 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .asType();
     Types typeUtils = processingEnvironment.getTypeUtils();
 
-    ImmutableMap<Property, FieldSpec> nonparameterizedAdapters = filterParameterizedAdapters(adapters, false);
-    for (Map.Entry<Property, FieldSpec> entry : nonparameterizedAdapters.entrySet()) {
+    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec field = entry.getValue();
       if (prop.typeAdapter != null) {
         if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
-          constructor.addStatement("this.$N = new $T().create($N, $L)", field, TypeName.get(prop.typeAdapter),
-                  gsonParam, makeType(prop.type));
+          if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+            constructor.addStatement("this.$N = ($T) new $T().create($N, $L)", field, field.type, TypeName.get(prop.typeAdapter),
+                    gsonParam, makeParameterizedType(prop.type, typeParams));
+          } else {
+            constructor.addStatement("this.$N = new $T().create($N, $T.get($T.class))", field, TypeName.get(prop.typeAdapter),
+                    gsonParam, TypeToken.class, prop.type);
+          }
         } else {
           constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
         }
-      } else if (prop.type instanceof ParameterizedTypeName) {
-        constructor.addStatement("this.$N = $N.getAdapter($L)", field, gsonParam, makeType(prop.type));
+      } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+        constructor.addStatement("this.$N = ($T) $N.getAdapter($L)", field, field.type, gsonParam,
+            makeParameterizedType(prop.type, typeParams));
       } else {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
         constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
@@ -400,49 +386,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
 
     return classBuilder.build();
-  }
-
-  private static void buildParameterizedTypeArguments(MethodSpec.Builder constructor, TypeName typeArg,
-                                                      List<TypeVariableName> typeParams) {
-    constructor.addCode(", ");
-    if (typeArg instanceof ParameterizedTypeName) { // type argument itself can be parameterized
-      ParameterizedTypeName paramTypeArg = (ParameterizedTypeName) typeArg;
-      constructor.addCode("$T.getParameterized($T.class", TypeToken.class, paramTypeArg.rawType);
-      for (TypeName type : paramTypeArg.typeArguments) {
-        buildParameterizedTypeArguments(constructor, type, typeParams);
-      }
-      constructor.addCode(").getType()");
-    } else if (typeArg instanceof TypeVariableName) {
-      constructor.addCode("typeArgs[$L]", typeParams.indexOf(typeArg));
-    } else {
-      constructor.addCode("$T.class", typeArg);
-    }
-  }
-
-  private ImmutableMap<Property, FieldSpec> filterParameterizedAdapters(Map<Property, FieldSpec> adapters, boolean parameterized) {
-    ImmutableMap.Builder<Property, FieldSpec> out = new ImmutableMap.Builder<>();
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-      if (isParameterizedField(entry.getKey().type) == parameterized) {
-        out.put(entry);
-      }
-    }
-    return out.build();
-  }
-
-  private static boolean isParameterizedField(TypeName typeName) {
-    if (typeName instanceof TypeVariableName) {
-      return true;
-    }
-
-    if (typeName instanceof ParameterizedTypeName) {
-      ParameterizedTypeName paramTypeName = (ParameterizedTypeName) typeName;
-      for (TypeName typeArgument : paramTypeName.typeArguments) {
-        if (isParameterizedField(typeArgument)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   public List<MethodSpec> createDefaultMethods(ClassName gsonTypeAdapterName, ImmutableMap<Property, FieldSpec> adapters) {
@@ -649,13 +592,35 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return valueString;
   }
 
-  private CodeBlock makeType(TypeName type) {
+  private CodeBlock makeParameterizedType(TypeName typeName, List<TypeVariableName> typeParams) {
     CodeBlock.Builder block = CodeBlock.builder();
-    if (type instanceof ParameterizedTypeName) {
-      block.add("new $T<$T>(){}", TypeToken.class, type);
-    } else {
-      block.add("$T.get($T.class)", TypeToken.class, type);
+    if (typeName instanceof TypeVariableName) {
+      block.add("$T.get(typeArgs[$L])", TypeToken.class, typeParams.indexOf(typeName));
+    } else{
+      ParameterizedTypeName paramType = (ParameterizedTypeName) typeName;
+      block.add("$T.getParameterized($T.class", TypeToken.class, paramType.rawType);
+      for (TypeName type : paramType.typeArguments) {
+        buildParameterizedTypeArguments(block, type, typeParams);
+      }
+      block.add(")");
     }
     return block.build();
+  }
+
+  private static void buildParameterizedTypeArguments(CodeBlock.Builder block, TypeName typeArg,
+                                                      List<TypeVariableName> typeParams) {
+    block.add(", ");
+    if (typeArg instanceof ParameterizedTypeName) { // type argument itself can be parameterized
+      ParameterizedTypeName paramTypeArg = (ParameterizedTypeName) typeArg;
+      block.add("$T.getParameterized($T.class", TypeToken.class, paramTypeArg.rawType);
+      for (TypeName type : paramTypeArg.typeArguments) {
+        buildParameterizedTypeArguments(block, type, typeParams);
+      }
+      block.add(").getType()");
+    } else if (typeArg instanceof TypeVariableName) {
+      block.add("typeArgs[$L]", typeParams.indexOf(typeArg));
+    } else {
+      block.add("$T.class", typeArg);
+    }
   }
 }
