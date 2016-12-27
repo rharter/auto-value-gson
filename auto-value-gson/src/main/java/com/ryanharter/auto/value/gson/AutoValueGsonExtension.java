@@ -477,6 +477,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("continue");
+    readMethod.endControlFlow();
+
     readMethod.beginControlFlow("switch ($N)", name);
     for (Map.Entry<Property, FieldSpec> entry : fields.entrySet()) {
       Property prop = entry.getKey();
