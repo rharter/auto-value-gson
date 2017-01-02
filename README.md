@@ -15,13 +15,15 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
   abstract String bar();
   @SerializedName("Baz") abstract String baz();
   abstract int quux();
+  abstract String with_underscores();
 
   // The public static method returning a TypeAdapter<Foo> is what
   // tells auto-value-gson to create a TypeAdapter for Foo.
   public static TypeAdapter<Foo> typeAdapter(Gson gson) {
     return new AutoValue_Foo.GsonTypeAdapter(gson)
       // You can set custom default values
-      .defaultQuux(4711);
+      .setDefaultQuux(4711)
+      .setDefaultWith_underscores("");
   }
 }
 ```
