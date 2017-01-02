@@ -101,6 +101,19 @@ Gson gson = new GsonBuilder()
     .create();
 ```
 
+## Compiler options
+
+`autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
+types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`.
+
+```gradle
+apt {
+ arguments {
+   autovaluegson.defaultCollectionsToEmpty 'true'
+ }
+}
+```
+
 ## Download
 
 Add a Gradle dependency to the `apt` and `provided` configuration.

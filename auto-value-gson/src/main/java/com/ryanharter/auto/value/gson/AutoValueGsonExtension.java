@@ -55,6 +55,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -63,6 +64,9 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
+
+  /** Compiler flag to indicate that collections/maps should default to their empty forms. Default is to default to null. */
+  static final String COLLECTIONS_DEFAULT_TO_EMPTY = "autovaluegson.defaultCollectionsToEmpty";
 
   public static class Property {
     final String methodName;
@@ -261,12 +265,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  private List<FieldSpec> createDefaultValueFields(ImmutableMap<Property, FieldSpec> adapters) {
+  private List<FieldSpec> createDefaultValueFields(ImmutableMap<Property, FieldSpec> adapters,
+      ProcessingEnvironment processingEnv) {
     List<FieldSpec> fields = new ArrayList<>(adapters.size());
+    boolean collectionsDefault = Boolean.parseBoolean(processingEnv.getOptions()
+        .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
     for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
       Property prop = entry.getKey();
       FieldSpec fieldSpec = FieldSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop), PRIVATE).build();
-      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec);
+      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec, collectionsDefault);
       if (defaultValue == null) {
         defaultValue = CodeBlock.of("null");
       }
@@ -322,7 +329,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueTypeName);
 
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
-    List<FieldSpec> defaultValues = createDefaultValueFields(adapters);
+    List<FieldSpec> defaultValues = createDefaultValueFields(adapters, context.processingEnvironment());
 
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
@@ -569,7 +576,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
-  private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
+  private CodeBlock getDefaultValue(Property prop, FieldSpec field, boolean collectionsDefaultToEmpty) {
     if (field.type.isPrimitive()) {
       String defaultValue = getDefaultPrimitiveValue(field.type);
       if (defaultValue != null) {
@@ -589,24 +596,29 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (typeElement == null) {
       return null;
     }
-    try {
-      Class<?> clazz = Class.forName(typeElement.getQualifiedName().toString());
-      if (clazz.isAssignableFrom(List.class)) {
-        return CodeBlock.of("$T.emptyList()", TypeName.get(Collections.class));
-      } else if (clazz.isAssignableFrom(Map.class)) {
-        return CodeBlock.of("$T.emptyMap()", TypeName.get(Collections.class));
-      } else if (clazz.isAssignableFrom(Set.class)) {
-        return CodeBlock.of("$T.emptySet()", TypeName.get(Collections.class));
-      } else if (clazz.isAssignableFrom(ImmutableList.class)) {
-        return CodeBlock.of("$T.of()", TypeName.get(ImmutableList.class));
-      } else if (clazz.isAssignableFrom(ImmutableMap.class)) {
-        return CodeBlock.of("$T.of()", TypeName.get(ImmutableMap.class));
-      } else if (clazz.isAssignableFrom(ImmutableSet.class)) {
-        return CodeBlock.of("$T.of()", TypeName.get(ImmutableSet.class));
-      } else {
+    if (collectionsDefaultToEmpty) {
+      try {
+        Class<?> clazz = Class.forName(typeElement.getQualifiedName()
+            .toString());
+        if (clazz.isAssignableFrom(List.class)) {
+          return CodeBlock.of("$T.emptyList()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(Map.class)) {
+          return CodeBlock.of("$T.emptyMap()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(Set.class)) {
+          return CodeBlock.of("$T.emptySet()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(ImmutableList.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableList.class));
+        } else if (clazz.isAssignableFrom(ImmutableMap.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableMap.class));
+        } else if (clazz.isAssignableFrom(ImmutableSet.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableSet.class));
+        } else {
+          return null;
+        }
+      } catch (ClassNotFoundException e) {
         return null;
       }
-    } catch (ClassNotFoundException e) {
+    } else {
       return null;
     }
   }
