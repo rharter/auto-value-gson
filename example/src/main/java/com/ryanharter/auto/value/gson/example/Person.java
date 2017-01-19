@@ -3,6 +3,8 @@ package com.ryanharter.auto.value.gson.example;
 import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
+import com.ryanharter.auto.value.gson.GsonTypeAdapter;
+import java.util.Date;
 
 @AutoValue
 public abstract class Person {
@@ -11,6 +13,9 @@ public abstract class Person {
     public abstract int gender();
 
     public abstract int age();
+
+    @GsonTypeAdapter(BirthdateAdapter.class)
+    public abstract Date birthdate();
 
     public abstract Address address();
 
@@ -29,6 +34,8 @@ public abstract class Person {
         public abstract Builder gender(int gender);
 
         public abstract Builder age(int age);
+
+        public abstract Builder birthdate(Date birthdate);
 
         public abstract Builder address(Address address);
 
