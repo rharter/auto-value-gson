@@ -17,7 +17,6 @@ public class PersonTest {
         String birthdate = "2007-11-11";
         Date date = df.parse(birthdate);
 
-
         Gson gson = new GsonBuilder()
                 .registerTypeAdapterFactory(SampleAdapterFactory.create())
                 .create();

@@ -32,13 +32,7 @@ public class BirthdateAdapter extends TypeAdapter<Date> {
     try {
       return df.parse(stringDate);
     } catch (ParseException e) {
-      throw new DateTypeParseException(stringDate);
-    }
-  }
-
-  public class DateTypeParseException extends RuntimeException {
-    public DateTypeParseException(String stringDate) {
-      super("Unparseable date: " + stringDate + ". It must be in \"yyyy-MM-dd\" format");
+      return new Date();
     }
   }
 }
