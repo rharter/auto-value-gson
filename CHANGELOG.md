@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.4.6 (2017-02-03)
+
+* Serializes collections to null by default, adding compiler option to serialize to empty variants. (#103)
+* Skip null values in JSON (#100)
+* Use TypeToken.getParameterized for all parameterized fields. (#99)
+
 ## Version 0.4.5 (2016-12-08)
 
 * Adds support for custom field adapters (#83)
