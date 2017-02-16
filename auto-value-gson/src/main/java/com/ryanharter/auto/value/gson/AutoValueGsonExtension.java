@@ -137,12 +137,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     public boolean shouldSerialize() {
       Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore == null || !ignore.serialization();
+      return ignore == null || ignore.value() == Ignore.Type.DESERIALIZATION;
     }
 
     public boolean shouldDeserialize() {
       Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore == null || !ignore.deserialization();
+      return ignore == null || ignore.value() == Ignore.Type.SERIALIZATION;
     }
 
     public boolean nullable() {

@@ -6,28 +6,43 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * If present on a property, defines whether the property should be ignored when serializing or
+ * If present on a property, defines whether the property should be ignored when serializing and/or
  * deserializing with the generated Gson TypeAdapter.
- * <p>
- * Absence of this annotation is the same as annotating
- * {@code @Ignore(serialization = false, deserialization = false)} (i.e. don't ignore this field).
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
 public @interface Ignore {
   /**
-   * If true, the annotated property will be ignored by the generated Gson TypeAdapter when
-   * generating a JSON serialization. The default is true.
+   * Returns a {@link Type} indicating whether this field should be ignored for serialization only,
+   * deserialization only, or both. The default is {@link Type#BOTH}.
+   *
+   * @see Type
    */
-  boolean serialization() default true;
+  Type value() default Type.BOTH;
 
-  /**
-   * If true, the annotated property will be ignored by the generated Gson TypeAdapter when
-   * creating an object from JSON, and instead the default value for this property will be used.
-   * If this field is not marked as nullable, a default value must be supplied to the generated
-   * TypeAdapter's constructor.
-   * <p>
-   * The default is true.
-   */
-  boolean deserialization() default true;
+  enum Type {
+    /**
+     * Ignore this field for serialization only. The annotated property will be ignored by the
+     * generated Gson TypeAdapter when generating a JSON serialization.
+     */
+    SERIALIZATION,
+    /**
+     * Ignore this field for deserialization only. The annotated property will be ignored by the
+     * generated Gson TypeAdapter when creating an object from JSON, and instead the default value
+     * for this property will be used.
+     * <p>
+     * If this field is not marked as nullable, a default value must be supplied to the generated
+     * TypeAdapter's constructor.
+     */
+    DESERIALIZATION,
+    /**
+     * Ignore this field for both serialization and deserialization.
+     * <p>
+     * If this field is not marked as nullable, a default value must be supplied to the generated
+     * TypeAdapter's constructor.
+     * <p>
+     * This is the default value for the Ignore annotation.
+     */
+    BOTH
+  }
 }

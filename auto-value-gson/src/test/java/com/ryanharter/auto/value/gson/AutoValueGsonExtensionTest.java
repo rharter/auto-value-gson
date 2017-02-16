@@ -1303,9 +1303,9 @@ public class AutoValueGsonExtensionTest {
         // a is not ignored, must be present in the JSON
         + "  public abstract String a();\n"
         // b is ignored for deserialization and not nullable, so a default value must be set
-        + "  @Ignore(serialization = false) public abstract String b();\n"
+        + "  @Ignore(Ignore.Type.DESERIALIZATION) public abstract String b();\n"
         // c is ignored for serialization, but may be left out of the json when serializing, so no default is needed
-        + "  @Ignore(deserialization = false) public abstract String c();\n"
+        + "  @Ignore(Ignore.Type.SERIALIZATION) public abstract String c();\n"
         // d is ignored and not nullable, so a default value must be set
         + "  @Ignore public abstract String d();\n"
         // e is nullable and ignored, so a default value is not required
