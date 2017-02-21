@@ -217,4 +217,70 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         .and()
         .generatesSources(expected);
   }
+
+  @Test public void generatesInnerClassTypeAdapterFactory() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+            + "package test;\n"
+            + "import com.google.auto.value.AutoValue;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.Gson;\n"
+            + "@AutoValue public abstract class Foo {\n"
+            + "  public static TypeAdapter<Foo> typeAdapter(Gson gson) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  public abstract String getName();\n"
+            + "  public abstract boolean isAwesome();\n"
+            + "}");
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
+            + "package test;\n"
+            + "import com.google.auto.value.AutoValue;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.Gson;\n"
+            + "@AutoValue public abstract class Bar {\n"
+            + "  public static TypeAdapter<Bar> jsonAdapter(Gson gson) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  public abstract String getName();\n"
+            + "}");
+    JavaFileObject source3 = JavaFileObjects.forSourceString("test.InnerClassWrapper", ""
+            + "package test;\n"
+            + "import com.google.gson.TypeAdapterFactory;\n"
+            + "import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;\n"
+            + "public abstract class InnerClassWrapper {\n"
+                + "@GsonTypeAdapterFactory\n"
+                + "public abstract static class MyAdapterFactory implements TypeAdapterFactory {\n"
+                + "  public static TypeAdapterFactory create() {\n"
+                + "    return new AutoValueGson_InnerClassWrapper_MyAdapterFactory();\n"
+                + "  }\n"
+                + "}\n"
+            + "}");
+    JavaFileObject expected = JavaFileObjects.forSourceString("test.AutoValueGson_MyAdapterFactory", ""
+            + "package test;\n"
+            + "import com.google.gson.Gson;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.reflect.TypeToken;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.SuppressWarnings;\n"
+            + "\n"
+            + "public final class AutoValueGson_InnerClassWrapper_MyAdapterFactory extends InnerClassWrapper.MyAdapterFactory {\n"
+            + "  @Override\n"
+            + "  @SuppressWarnings(\"unchecked\")\n"
+            + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
+            + "    Class<T> rawType = (Class<T>) type.getRawType();\n"
+            + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
+            + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
+            + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
+            + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
+            + "    } else {\n"
+            + "      return null;\n"
+            + "    }\n"
+            + "  }\n"
+            + "}");
+    assertAbout(javaSources())
+            .that(ImmutableSet.of(source1, source2, source3))
+            .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+            .compilesWithoutError()
+            .and()
+            .generatesSources(expected);
+  }
 }

@@ -89,9 +89,11 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         if (!implementsTypeAdapterFactory(type)) {
           error(element, "Must implement TypeAdapterFactory!");
         }
-        String adapterName = classNameOf(type);
+        String adapterName = classNameOf(type, "_");
+        String qualifiedName = classNameOf(type, ".");
         String packageName = packageNameOf(type);
-        TypeSpec typeAdapterFactory = createTypeAdapterFactory(elements, packageName, adapterName);
+        TypeSpec typeAdapterFactory = createTypeAdapterFactory(elements, packageName,
+                adapterName, qualifiedName);
         JavaFile file = JavaFile.builder(packageName, typeAdapterFactory).build();
         try {
           file.writeTo(processingEnv.getFiler());
@@ -108,11 +110,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
   private TypeSpec createTypeAdapterFactory(
       List<Element> elements,
       String packageName,
-      String adapterName) {
+      String adapterName,
+      String qualifiedName) {
     TypeSpec.Builder factory = TypeSpec.classBuilder(
         ClassName.get(packageName, "AutoValueGson_" + adapterName));
     factory.addModifiers(PUBLIC, FINAL);
-    factory.superclass(ClassName.get(packageName, adapterName));
+    factory.superclass(ClassName.get(packageName, qualifiedName));
 
     ParameterSpec gson = ParameterSpec.builder(Gson.class, "gson").build();
     TypeVariableName t = TypeVariableName.get("T");
@@ -234,12 +237,16 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   /**
-   * Returns the name of the given type, including any enclosing types but not the package.
+   * Returns the name of the given type, including any enclosing types but not the package, separated
+   * by a delimiter.
    */
-  private static String classNameOf(TypeElement type) {
-    String name = type.getQualifiedName().toString();
-    String pkgName = packageNameOf(type);
-    return pkgName.isEmpty() ? name : name.substring(pkgName.length() + 1);
+  private static String classNameOf(TypeElement type, String delimiter) {
+    String name = type.getSimpleName().toString();
+    while (type.getEnclosingElement() instanceof TypeElement) {
+      type = (TypeElement) type.getEnclosingElement();
+      name = type.getSimpleName() + delimiter + name;
+    }
+    return name;
   }
 
   /**
