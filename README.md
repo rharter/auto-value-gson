@@ -115,6 +115,20 @@ apt {
  }
 }
 ```
+Starting with the Android Gradle plugin version 2.2 and when using `annotationProcessor` instead of `apt`:
+```gradle
+android {
+  // ...
+  defaultConfig {
+    // ...
+    javaCompileOptions {
+      annotationProcessorOptions {
+        arguments = ['autovaluegson.defaultCollectionsToEmpty': 'true']
+      }
+    }
+  }
+}
+```
 
 ## Download
 
