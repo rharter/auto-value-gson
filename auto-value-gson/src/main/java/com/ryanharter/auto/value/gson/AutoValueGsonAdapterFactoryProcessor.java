@@ -29,7 +29,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -41,7 +40,9 @@ import javax.lang.model.util.Types;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 /**
@@ -168,8 +169,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName
         .get(ClassName.get(TypeAdapter.class), type);
     for (ExecutableElement method : ElementFilter.methodsIn(element.getEnclosedElements())) {
-      if (method.getModifiers().contains(Modifier.STATIC)
-          && method.getModifiers().contains(Modifier.PUBLIC)) {
+      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeName returnType = TypeName.get(method.getReturnType());
         if (returnType.equals(typeAdapterType)) {
           return method;
