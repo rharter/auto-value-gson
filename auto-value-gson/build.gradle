@@ -6,7 +6,7 @@ targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
     compile project(':auto-value-gson-annotations')
-    compile 'com.google.code.gson:gson:2.8.0'
+    compile deps.gson
     compile 'com.squareup:javapoet:1.8.0'
     compile 'com.jakewharton.auto.value:auto-value-annotations:1.4'
     compileOnly 'com.google.auto.value:auto-value:1.4'
