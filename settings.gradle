@@ -1,2 +1,2 @@
-include ':example', ':auto-value-gson'
+include ':example', ':auto-value-gson', ':auto-value-gson-annotations'
 
