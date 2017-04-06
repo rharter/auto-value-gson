@@ -8,8 +8,7 @@ dependencies {
     compile project(':auto-value-gson-annotations')
     compile deps.gson
     compile 'com.squareup:javapoet:1.8.0'
-    compile 'com.jakewharton.auto.value:auto-value-annotations:1.4'
-    compileOnly 'com.google.auto.value:auto-value:1.4'
+    compile 'com.google.auto.value:auto-value:1.4'
     compileOnly 'com.google.auto.service:auto-service:1.0-rc2'
     compile 'com.google.auto:auto-common:0.6'
 
