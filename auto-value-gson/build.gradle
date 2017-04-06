@@ -16,7 +16,6 @@ dependencies {
     testCompile 'com.google.truth:truth:0.27'
     testCompile 'com.google.testing.compile:compile-testing:0.9'
     testCompile files(org.gradle.internal.jvm.Jvm.current().getToolsJar())
-    testCompile 'com.google.auto.value:auto-value:1.4'
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
