@@ -130,6 +130,14 @@ android {
 }
 ```
 
+## Note
+When you call `gson.toJson`, don't forget to add the second type parameter, otherwise, 
+gson will fallback to use reflection to serialize your object, which is very slow.
+
+[Piasy did a performance test](http://blog.piasy.com/2016/05/06/Perfect-Android-Model-Layer/#autogson-) 
+to compare their difference, the result shows that without the second type
+parameter, the `toJson` call take **`175.5% ~ 279.6%`** longer time.
+
 ## Download
 
 Add a Gradle dependency to the `apt` and `provided` configuration.
