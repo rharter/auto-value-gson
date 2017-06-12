@@ -1,3 +1,27 @@
 language: java
 jdk:
   - oraclejdk8
+
+script:
+  - ./gradlew build
+
+after_success:
+  - .buildscript/deploy_snapshot.sh
+
+env:
+  global:
+    - secure: "SONATYPE_NEXUS_USERNAME TODO"
+    - secure: "SONATYPE_NEXUS_PASSWORD TODO"
+
+branches:
+  except:
+    - gh-pages
+
+notifications:
+  email: false
+
+sudo: false
+
+cache:
+  directories:
+    - $HOME/.gradle
