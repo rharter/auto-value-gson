@@ -4,12 +4,12 @@ apply plugin: 'idea'
 
 dependencies {
     compile 'com.google.code.gson:gson:2.8.1'
-    compileOnly 'com.google.auto.value:auto-value:1.4.1'
-    apt 'com.google.auto.value:auto-value:1.4.1'
+    compileOnly 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
+    apt 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
     apt project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
 
     testCompile 'junit:junit:4.12'
-    testCompileOnly 'com.google.auto.value:auto-value:1.4.1'
-    testApt 'com.google.auto.value:auto-value:1.4.1'
+    testCompileOnly 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
+    testApt 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
 }

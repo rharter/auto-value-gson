@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.gson.example;
 import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
+import com.ryanharter.auto.value.gson.GsonDefaultBuilder;
 import com.ryanharter.auto.value.gson.GsonTypeAdapter;
 import java.util.Date;
 
@@ -19,8 +20,11 @@ public abstract class Person {
 
     public abstract Address address();
 
+    @GsonDefaultBuilder
     public static Builder builder() {
-        return new AutoValue_Person.Builder();
+        return new AutoValue_Person.Builder()
+            .name("Jane Doe")
+            .gender(0);
     }
 
     public static TypeAdapter<Person> typeAdapter(Gson gson) {
@@ -39,6 +43,14 @@ public abstract class Person {
 
         public abstract Builder address(Address address);
 
-        public abstract Person build();
+        abstract Person autoBuild();
+
+        public Person build() {
+            Person person = autoBuild();
+            if (person.age() < 0) {
+                throw new IllegalArgumentException("age cannot be negative");
+            }
+            return person;
+        }
     }
 }

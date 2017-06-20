@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.gson;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
+import com.google.auto.value.extension.AutoValueExtension.BuilderContext;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -75,7 +76,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     List<Element> elements = new LinkedList<>();
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
       AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
-      if (extension.applicable(context)) {
+      if (AutoValueGsonExtension.validateTypeAdapter(context)) {
         elements.add(element);
       }
     }
@@ -283,6 +284,16 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     }
 
     @Override public Set<ExecutableElement> abstractMethods() {
+      return null;
+    }
+
+    @Override
+    public boolean hasBuilder() {
+      return false;
+    }
+
+    @Override
+    public BuilderContext builder() {
       return null;
     }
   }

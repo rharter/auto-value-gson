@@ -9,7 +9,7 @@ targetCompatibility = JavaVersion.VERSION_1_8
 dependencies {
     api 'com.google.code.gson:gson:2.8.1'
     implementation 'com.squareup:javapoet:1.9.0'
-    api 'com.google.auto.value:auto-value:1.4.1'
+    api 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
     compileOnly 'com.google.auto.service:auto-service:1.0-rc3'
     api 'com.google.auto:auto-common:0.8'
 

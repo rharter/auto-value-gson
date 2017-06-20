@@ -1,14 +1,15 @@
 package com.ryanharter.auto.value.gson;
 
+import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Defaults;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
@@ -40,7 +41,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -48,6 +51,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeKind;
@@ -55,6 +59,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+import javax.tools.Diagnostic.Kind;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -67,10 +72,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   /** Compiler flag to indicate that collections/maps should default to their empty forms. Default is to default to null. */
   static final String COLLECTIONS_DEFAULT_TO_EMPTY = "autovaluegson.defaultCollectionsToEmpty";
-
-  /** Compiler flag to indicate that generated TypeAdapters should be mutable with setters for defaults. */
-  static final String MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS
-      = "autovaluegson.mutableAdaptersWithDefaultSetters";
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
 
@@ -87,6 +88,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
     final TypeMirror typeAdapter;
+    final boolean instanceOfOptional;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -97,6 +99,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       annotations = buildAnnotations(element);
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
+      TypeMirror returnType = element.getReturnType();
+      instanceOfOptional = !TypeKind.TYPEVAR.equals(returnType.getKind())
+          && (MoreTypes.isTypeOf(Optional.class, returnType)
+              || MoreTypes.isTypeOf(com.google.common.base.Optional.class, returnType));
     }
 
     public static TypeMirror getAnnotationValue(Element foo, Class<?> annotation) {
@@ -172,67 +178,43 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
   }
 
-  private boolean defaultSetters = false;
   private boolean collectionsDefaultToEmpty = false;
 
   @Override
   public boolean applicable(Context context) {
-    // check that the class contains a public static method returning a TypeAdapter
-    TypeElement type = context.autoValueClass();
-    TypeName typeName = TypeName.get(type.asType());
-    ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
-        ClassName.get(TypeAdapter.class), typeName);
-    TypeName returnedTypeAdapter = null;
-    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
-      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
-        TypeMirror rType = method.getReturnType();
-        TypeName returnType = TypeName.get(rType);
-        if (returnType.equals(typeAdapterType)) {
-          return true;
-        }
-
-        if (returnType.equals(typeAdapterType.rawType)
-          || (returnType instanceof ParameterizedTypeName
-            && ((ParameterizedTypeName) returnType).rawType.equals(typeAdapterType.rawType))) {
-          returnedTypeAdapter = returnType;
-        }
-      }
-    }
-
-    if (returnedTypeAdapter == null) {
-      return false;
-    }
-
-    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
     Messager messager = context.processingEnvironment().getMessager();
-    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
-      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
-      TypeName argument = paramReturnType.typeArguments.get(0);
 
-      // If the original type uses generics, user's don't have to nest the generic type args
-      if (typeName instanceof ParameterizedTypeName) {
-        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
-        if (pTypeName.rawType.equals(argument)) {
-          return true;
-        }
-      } else {
-        messager.printMessage(Diagnostic.Kind.WARNING,
-            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-                + "Skipping GsonTypeAdapter generation.", argument, type));
-      }
-    } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
-          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+    // validate @GsonDefaultBuilder usage
+    Set<ExecutableElement> annotatedElements = ElementFilter
+        .methodsIn(context.autoValueClass().getEnclosedElements())
+        .stream()
+        .filter(MoreElements.hasModifiers(STATIC)::apply)
+        .filter(e -> !MoreElements.hasModifiers(PRIVATE).apply(e))
+        .filter(e -> MoreElements.isAnnotationPresent(e, GsonDefaultBuilder.class))
+        .collect(Collectors.toSet());
+
+    if (!context.hasBuilder()) {
+      annotatedElements.stream().findFirst().ifPresent(method -> {
+        TypeElement declaringClass = (TypeElement) method.getEnclosingElement();
+        messager.printMessage(Kind.ERROR,
+            String.format(
+                "%s does not have builder, but found element <%s#%s> annotated with @GsonDefaultBuilder.",
+                context.autoValueClass().getQualifiedName(), declaringClass, method
+            ));
+      });
     }
 
-    return false;
+    if (annotatedElements.size() > 1) {
+      messager.printMessage(Kind.ERROR, "Found more than one method with @GsonDefaultBuilder "
+          + "annotation.");
+    }
+
+    return validateTypeAdapter(context);
   }
 
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
     ProcessingEnvironment env = context.processingEnvironment();
-    defaultSetters = Boolean.parseBoolean(context.processingEnvironment().getOptions()
-        .getOrDefault(MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS, "false"));
     collectionsDefaultToEmpty = Boolean.parseBoolean(env.getOptions()
         .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
     boolean generatedAnnotationAvailable = context.processingEnvironment()
@@ -304,25 +286,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties) {
-    ImmutableMap.Builder<Property, FieldSpec> builder = ImmutableMap.builder();
-    for (Property prop : properties) {
-      FieldSpec fieldSpec = FieldSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop), PRIVATE).build();
-      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec);
-      if (defaultValue == null) {
-        defaultValue = CodeBlock.of("null");
-      }
-      builder.put(prop, fieldSpec.toBuilder()
-              .initializer(defaultValue)
-              .build());
-    }
-    return builder.build();
-  }
-
-  private String upperCamelizeHumanName(Property prop) {
-    return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, prop.humanName);
-  }
-
   MethodSpec generateConstructor(Map<String, TypeName> properties) {
     List<ParameterSpec> params = Lists.newArrayList();
     for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
@@ -355,7 +318,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(Context context, ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
+  public TypeSpec createTypeAdapter(Context context, ClassName className,
+      ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     TypeName autoValueTypeName = autoValueClassName;
     if (!typeParams.isEmpty()) {
@@ -386,17 +350,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .asType();
     Types typeUtils = processingEnvironment.getTypeUtils();
 
-    Map<Property, FieldSpec> defaultValueFields = Collections.emptyMap();
-    if (defaultSetters) {
-      defaultValueFields = createDefaultValueFields(properties);
-    }
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
     for (Property prop : properties) {
-      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
-        // Property should be ignored for deserialization but is not marked as nullable - we require a default value
-        constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
-        constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
-      }
       if (!prop.shouldDeserialize() && !prop.shouldSerialize()) {
         continue;
       }
@@ -424,6 +379,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     ClassName gsonTypeAdapterName = className.nestedClass("GsonTypeAdapter");
 
+    MethodSpec readMethod = context.hasBuilder() ?
+        createReadMethod(className, autoValueTypeName, properties, adapters, context.autoValueClass(), context.builder(), processingEnvironment) :
+        createReadMethod(className, autoValueTypeName, properties, adapters);
+
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, STATIC, FINAL)
@@ -431,32 +390,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addFields(adapters.values())
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, adapters))
-        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters));
-
-    if (defaultSetters) {
-        classBuilder.addMethods(createDefaultMethods(gsonTypeAdapterName, properties))
-            .addFields(defaultValueFields.values());
-    }
+        .addMethod(readMethod);
 
     return classBuilder.build();
-  }
-
-  public List<MethodSpec> createDefaultMethods(ClassName gsonTypeAdapterName, List<Property> properties) {
-    List<MethodSpec> methodSpecs = new ArrayList<>(properties.size());
-    for (Property prop : properties) {
-      ParameterSpec valueParam = ParameterSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop)).build();
-
-      methodSpecs.add(MethodSpec.methodBuilder("setDefault" + upperCamelizeHumanName(prop))
-              .addModifiers(PUBLIC)
-              .addParameter(valueParam)
-              .returns(gsonTypeAdapterName)
-              .addCode(CodeBlock.builder()
-                      .addStatement("this.default$L = $N", upperCamelizeHumanName(prop), valueParam)
-                      .addStatement("return this")
-                      .build())
-              .build());
-    }
-    return methodSpecs;
   }
 
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
@@ -519,18 +455,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
 
-      if (defaultSetters) {
-        readMethod.addStatement("$T $N = this.default$L", field.type, field.name, upperCamelizeHumanName(prop));
+      CodeBlock defaultValue = getDefaultValue(prop, field);
+      readMethod.addCode("$[$T $N = ", field.type, field);
+      if (defaultValue != null) {
+        readMethod.addCode(defaultValue);
       } else {
-        CodeBlock defaultValue = getDefaultValue(prop, field);
-        readMethod.addCode("$[$T $N = ", field.type, field);
-        if (defaultValue != null) {
-          readMethod.addCode(defaultValue);
-        } else {
-          readMethod.addCode("$L", "null");
-        }
-        readMethod.addCode(";\n$]");
+        readMethod.addCode("$L", "null");
       }
+      readMethod.addCode(";\n$]");
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -583,6 +515,120 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
     format.append(")");
     readMethod.addStatement(format.toString(), fields.values().toArray());
+
+    return readMethod.build();
+  }
+
+  private MethodSpec createReadMethod(ClassName className,
+      TypeName autoValueClassName,
+      List<Property> properties,
+      ImmutableMap<Property, FieldSpec> adapters,
+      TypeElement autoValueClassElement,
+      BuilderContext builderContext,
+      ProcessingEnvironment processingEnvironment) {
+    ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
+    MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC)
+        .returns(autoValueClassName)
+        .addParameter(jsonReader)
+        .addException(IOException.class);
+
+    ClassName token = ClassName.get(JsonToken.NULL.getDeclaringClass());
+
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("return null");
+    readMethod.endControlFlow();
+
+    Optional<ExecutableElement> defaultBuilder = findDefaultBuilder(autoValueClassElement, builderContext.builderClass());
+
+    ClassName builderClassName = ClassName.get(builderContext.builderClass());
+    FieldSpec builder = FieldSpec.builder(builderClassName, "_builder").build();
+    if (defaultBuilder.isPresent()) {
+      ClassName baseClass = ClassName.get(autoValueClassElement);
+      readMethod.addStatement("$T $N = $T.$L", builder.type, builder, baseClass, defaultBuilder.get());
+    } else {
+      ClassName finalBuilderClassName = className.nestedClass(builderClassName.simpleName());
+      readMethod.addStatement("$T $N = new $T()", builder.type, builder, finalBuilderClassName);
+    }
+
+    readMethod.addStatement("$N.beginObject()", jsonReader);
+
+    readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
+
+    FieldSpec name = FieldSpec.builder(String.class, "_name").build();
+    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
+
+    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
+    readMethod.addStatement("$N.nextNull()", jsonReader);
+    readMethod.addStatement("continue");
+    readMethod.endControlFlow();
+
+    readMethod.beginControlFlow("switch ($N)", name);
+    for (Property prop : properties) {
+      if (!prop.shouldDeserialize()) {
+        continue;
+      }
+
+      for (String alternate : prop.serializedNameAlternate()) {
+        readMethod.addCode("case $S:\n", alternate);
+      }
+      readMethod.beginControlFlow("case $S:", prop.serializedName());
+      Set<ExecutableElement> setters = builderContext.setters().get(prop.humanName);
+
+      // search overloaded methods for a type match
+      Optional<CodeBlock> setterBlock = setters.stream()
+          .filter(e -> ClassName.get(e.getParameters().get(0).asType()).equals(prop.type))
+          .findFirst()
+          .map(method ->
+              CodeBlock.builder()
+                  .addStatement("_builder.$N($N.read($N))", method.getSimpleName(), adapters.get(prop), jsonReader)
+                  .build());
+
+      // if the property is Optional<T>, see if there is an overloaded setter that accepts T
+      if (!setterBlock.isPresent() && prop.instanceOfOptional) {
+        final ClassName optionalPropTypeArgument = (ClassName) ((ParameterizedTypeName) prop.type).typeArguments.get(0);
+        setterBlock = setters.stream()
+            .filter(e -> ClassName.get(e.getParameters().get(0).asType()).equals(optionalPropTypeArgument))
+            .findFirst()
+            .map(method ->
+            {
+              String propertyVarName = prop.humanName + "Property";
+              return CodeBlock.builder()
+                  .addStatement("$T $L = $N.read($N)", prop.type, propertyVarName,
+                      adapters.get(prop), jsonReader)
+                  .beginControlFlow("if ($L.isPresent())", propertyVarName)
+                  .addStatement("_builder.$N($L.get())", method.getSimpleName(), propertyVarName)
+                  .endControlFlow()
+                  .build();
+            });
+      }
+
+      readMethod.addCode(setterBlock.get()); // S
+      readMethod.addStatement("break");
+      readMethod.endControlFlow();
+    }
+
+    // skip value if field is not serialized...
+    readMethod.beginControlFlow("default:");
+    readMethod.addStatement("$N.skipValue()", jsonReader);
+    readMethod.endControlFlow();
+
+    readMethod.endControlFlow(); // switch
+    readMethod.endControlFlow(); // while
+
+    readMethod.addStatement("$N.endObject()", jsonReader);
+
+    // find the build method to use
+    Optional<ExecutableElement> buildMethod = findBuildMethod(autoValueClassElement, builderContext.builderClass());
+    if (buildMethod.isPresent()) {
+      readMethod.addStatement("return $N.$N()", builder, buildMethod.get().getSimpleName());
+    } else {
+      processingEnvironment.getMessager().printMessage(Kind.ERROR,
+          String.format("Could not determine build method in %s. Provide a build method named"
+              + "\"build\" or annotate one with @GsonBuild.", builderContext.builderClass().getQualifiedName()));
+    }
 
     return readMethod.build();
   }
@@ -704,4 +750,101 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       block.add("$T.class", typeArg);
     }
   }
+
+  private static Optional<ExecutableElement> findDefaultBuilder(TypeElement autoValueClass, TypeElement builderClass) {
+    return ElementFilter.methodsIn(autoValueClass.getEnclosedElements())
+        .stream()
+        .filter(e -> MoreElements.isAnnotationPresent(e, GsonDefaultBuilder.class))
+        .filter(MoreElements.hasModifiers(Modifier.STATIC)::apply)
+        .filter(e -> MoreTypes.equivalence().equivalent(e.getReturnType(), builderClass.asType()))
+        .filter(e -> e.getParameters().isEmpty())
+        .findFirst();
+  }
+
+  /**
+   * Searches the builder for an method has no parameters, returns the autovalue class, is not
+   * private, and is not static. If there is a valid method annotated with {@link GsonBuild}, return
+   * that method. Otherwise, return the method named "build" if present.
+   */
+  private static Optional<ExecutableElement> findBuildMethod(
+      TypeElement autoValueClass, TypeElement builderElement) {
+    List<ExecutableElement> methods = ElementFilter.methodsIn(builderElement.getEnclosedElements())
+        .stream()
+        .filter(e -> !MoreElements.hasModifiers(STATIC, PRIVATE).apply(e))
+        .filter(e -> e.getParameters().isEmpty())
+        .filter(e -> MoreTypes.equivalence().equivalent(e.getReturnType(), autoValueClass.asType()))
+        .collect(Collectors.toList());
+
+    if (methods.isEmpty()) {
+      return Optional.empty();
+    }
+
+    List<ExecutableElement> annotatedMethods = methods.stream()
+        .filter(e -> MoreElements.isAnnotationPresent(e, GsonBuild.class))
+        .collect(Collectors.toList());
+
+    if (annotatedMethods.size() > 1) {
+      return Optional.empty();
+    } else if (annotatedMethods.size() == 1) {
+      return Optional.of(Iterables.getOnlyElement(annotatedMethods));
+    }
+
+    return methods.stream()
+        .filter(e -> e.getSimpleName().contentEquals("build"))
+        .findFirst();
+  }
+
+  static boolean validateTypeAdapter(Context context) {
+    Messager messager = context.processingEnvironment().getMessager();
+
+    // check that the class contains a public static method returning a TypeAdapter
+    TypeElement type = context.autoValueClass();
+    TypeName typeName = TypeName.get(type.asType());
+    ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
+        ClassName.get(TypeAdapter.class), typeName);
+    TypeName returnedTypeAdapter = null;
+    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
+      if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
+        TypeMirror rType = method.getReturnType();
+        TypeName returnType = TypeName.get(rType);
+        if (returnType.equals(typeAdapterType)) {
+          return true;
+        }
+
+        if (returnType.equals(typeAdapterType.rawType)
+            || (returnType instanceof ParameterizedTypeName
+            && ((ParameterizedTypeName) returnType).rawType.equals(typeAdapterType.rawType))) {
+          returnedTypeAdapter = returnType;
+        }
+      }
+    }
+
+    if (returnedTypeAdapter == null) {
+      return false;
+    }
+
+    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
+    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
+      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
+      TypeName argument = paramReturnType.typeArguments.get(0);
+
+      // If the original type uses generics, user's don't have to nest the generic type args
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+        if (pTypeName.rawType.equals(argument)) {
+          return true;
+        }
+      } else {
+        messager.printMessage(Diagnostic.Kind.WARNING,
+            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+                + "Skipping GsonTypeAdapter generation.", argument, type));
+      }
+    } else {
+      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+    }
+
+    return false;
+  }
+
 }

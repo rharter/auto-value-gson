@@ -20,10 +20,7 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
   // The public static method returning a TypeAdapter<Foo> is what
   // tells auto-value-gson to create a TypeAdapter for Foo.
   public static TypeAdapter<Foo> typeAdapter(Gson gson) {
-    return new AutoValue_Foo.GsonTypeAdapter(gson)
-      // You can set custom default values
-      .setDefaultQuux(4711)
-      .setDefaultWith_underscores("");
+    return new AutoValue_Foo.GsonTypeAdapter(gson);
   }
 }
 ```
@@ -67,6 +64,67 @@ see [Gson Changelog](https://github.com/google/gson/blob/master/CHANGELOG.md#ver
   public static <A, B, C> TypeAdapter<Foo<A, B, C>> typeAdapter(Gson gson,
       TypeToken<? extends Foo<A, B, C>> typeToken) {
     return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
+  }
+}
+```
+
+## Builder Support
+If your `@AutoValue` annotated class has an annotated `@AutoValue.Builder` class or interface, 
+AutoValueGson will use the builder to create instances of your class. If your builder enforces 
+custom validation or normalization rules, they will also be enforced when your class is being 
+deserialized.
+
+You can specify default values by annotating a builder factory method with `@GsonDefaultBuilder` 
+and declaring defaults there.
+
+```java
+@AutoValue public abstract class Foo {
+  abstract Optional<String> bar();
+  abstract Optional<String> baz();
+  abstract String quux();
+  
+  @GsonDefaultBuilder
+  public static builder() {
+    // setting custom default values
+    return new AutoValue_Foo.Builder()
+      .quux("QUUX");
+  }
+  
+  @AutoValue.Builder
+  public static abstract class Builder {
+    public abstract Builder bar(String s);
+    public abstract Builder baz(String s);
+    public abstract Builder quux(String s);
+    abstract Foo autoBuild();
+    public Foo build() {
+      Foo foo = autoBuild();
+      if (!(foo.bar().isPresent() || foo.baz().isPresent())) {
+        throw new IllegalArgumentException("Either one of both of the properties bar and baz must be present");
+      }
+      return foo;
+    }
+  }
+}
+```
+
+AutoValueGson expects the Builder's build method to be named "build", but an unconventional build
+method can be specified using `@GsonBuild`.
+
+```java
+@AutoValue.Builder
+public static abstract class Builder {
+  public abstract Builder bar(String s);
+  abstract Foo autoBuild();
+  public Foo build() {
+    return autoBuild();
+  }
+  @GsonBuild public Foo jsonBuild() {
+    // perform extra checks for json deserialization only
+    Foo foo = autoBuild();
+    if (!(foo.bar().isPresent() || foo.baz().isPresent())) {
+      throw new IllegalArgumentException("Either one of both of the properties bar and baz must be present");
+    }
+    return foo;
   }
 }
 ```
