@@ -1,6 +1,6 @@
 # Change Log
 
-## version 0.5.0 (2014-04-07)
+## version 0.5.0 (2017-07-07)
 
 * Allow ignoring fields for serialization/deserialization (#91)
 * Support non-public TypeAdapter factory methods (#121) (#122)
