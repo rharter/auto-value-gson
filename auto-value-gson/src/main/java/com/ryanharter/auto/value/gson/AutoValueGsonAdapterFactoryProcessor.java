@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -53,7 +54,6 @@ import static javax.tools.Diagnostic.Kind.ERROR;
 @AutoService(Processor.class)
 public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
-  private final AutoValueGsonExtension extension = new AutoValueGsonExtension();
   private Types typeUtils;
   private Elements elementUtils;
 
@@ -76,7 +76,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     List<Element> elements = new LinkedList<>();
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
       AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
-      if (AutoValueGsonExtension.validateTypeAdapter(context)) {
+      if (AutoValueGsonExtension.isValidTypeAdapter(context)) {
         elements.add(element);
       }
     }
@@ -292,7 +292,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       return false;
     }
 
-    @Override
+    @Override @Nullable
     public BuilderContext builder() {
       return null;
     }

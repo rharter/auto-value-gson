@@ -7,11 +7,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * If present, will indicate which builder build method to use. Only necessary if the build method
- * is not named "build".
+ * If present, indicates that the annotated method should be used for retrieving an instance of the
+ * AutoValue.Builder. Only necessary if there is more than one builder method.
  */
 @Retention(SOURCE)
 @Target(METHOD)
-public @interface GsonBuild {
-
+public @interface AutoValueGsonBuilder {
 }

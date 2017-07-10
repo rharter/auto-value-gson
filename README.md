@@ -74,20 +74,21 @@ AutoValueGson will use the builder to create instances of your class. If your bu
 custom validation or normalization rules, they will also be enforced when your class is being 
 deserialized.
 
-You can specify default values by annotating a builder factory method with `@GsonDefaultBuilder` 
-and declaring defaults there.
-
 ```java
 @AutoValue public abstract class Foo {
   abstract Optional<String> bar();
   abstract Optional<String> baz();
   abstract String quux();
   
-  @GsonDefaultBuilder
-  public static builder() {
+  @AutoValueGsonBuilder // required if there are multiple builder methods to indicate which to use
+  public static Builder builderWithDefaults() {
     // setting custom default values
     return new AutoValue_Foo.Builder()
       .quux("QUUX");
+  }
+  
+  public static Builder builder() {
+    return new AutoValue_Foo.Builder();
   }
   
   @AutoValue.Builder
@@ -96,6 +97,7 @@ and declaring defaults there.
     public abstract Builder baz(String s);
     public abstract Builder quux(String s);
     abstract Foo autoBuild();
+    @AutoValueGsonBuild // required if there are multiple build methods to indicate which to use
     public Foo build() {
       Foo foo = autoBuild();
       if (!(foo.bar().isPresent() || foo.baz().isPresent())) {
@@ -103,28 +105,6 @@ and declaring defaults there.
       }
       return foo;
     }
-  }
-}
-```
-
-AutoValueGson expects the Builder's build method to be named "build", but an unconventional build
-method can be specified using `@GsonBuild`.
-
-```java
-@AutoValue.Builder
-public static abstract class Builder {
-  public abstract Builder bar(String s);
-  abstract Foo autoBuild();
-  public Foo build() {
-    return autoBuild();
-  }
-  @GsonBuild public Foo jsonBuild() {
-    // perform extra checks for json deserialization only
-    Foo foo = autoBuild();
-    if (!(foo.bar().isPresent() || foo.baz().isPresent())) {
-      throw new IllegalArgumentException("Either one of both of the properties bar and baz must be present");
-    }
-    return foo;
   }
 }
 ```

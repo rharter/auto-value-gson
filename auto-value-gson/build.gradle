@@ -7,13 +7,15 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-    api 'com.google.code.gson:gson:2.8.1'
+    api deps.gson
     implementation 'com.squareup:javapoet:1.9.0'
-    api 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
+    api deps.autovalue
     compileOnly 'com.google.auto.service:auto-service:1.0-rc3'
     api 'com.google.auto:auto-common:0.8'
+    implementation 'com.google.guava:guava:22.0'
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 
-    testCompile 'junit:junit:4.12'
+    testCompile deps.junit
     testCompile 'com.google.truth:truth:0.33'
     testCompile 'com.google.testing.compile:compile-testing:0.11'
     testCompile files(Jvm.current().getToolsJar())

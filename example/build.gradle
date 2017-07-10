@@ -3,13 +3,13 @@ apply plugin: "net.ltgt.apt"
 apply plugin: 'idea'
 
 dependencies {
-    compile 'com.google.code.gson:gson:2.8.1'
-    compileOnly 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
-    apt 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
+    compile deps.gson
+    compileOnly deps.autovalue
+    apt deps.autovalue
     apt project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
 
-    testCompile 'junit:junit:4.12'
-    testCompileOnly 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
-    testApt 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT'
+    testCompile deps.junit
+    testCompileOnly deps.autovalue
+    testApt deps.autovalue
 }

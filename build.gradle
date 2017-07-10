@@ -17,6 +17,7 @@ allprojects {
         maven {
             url 'http://oss.sonatype.org/content/repositories/snapshots'
         }
+        // TODO: remove when AutoValue extensions support builder properties
         maven {
             url 'https://jitpack.io'
         }
@@ -28,3 +29,10 @@ task wrapper(type: Wrapper) {
     gradleVersion = '4.0'
     distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
+
+ext.deps = [
+    // TODO: remove when AutoValue extensions support builder properties
+    autovalue: 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT',
+    gson     : 'com.google.code.gson:gson:2.8.1',
+    junit    : 'junit:junit:4.12',
+]

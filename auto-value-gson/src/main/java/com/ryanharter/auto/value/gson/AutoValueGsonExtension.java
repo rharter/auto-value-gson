@@ -1,8 +1,15 @@
 package com.ryanharter.auto.value.gson;
 
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
+
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
+import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.base.Defaults;
 import com.google.common.base.Strings;
@@ -43,8 +50,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Generated;
+import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -54,11 +63,11 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -81,6 +90,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           .addMember("comments", "$S", GENERATED_COMMENTS)
           .build();
 
+  // see com.google.auto.value.processor.Optionalish
+  private static final ImmutableSet<String> OPTIONAL_CLASS_NAMES = ImmutableSet.of(
+      "com.google.common.base.Optional",
+      "java.util.Optional",
+      "java.util.OptionalDouble",
+      "java.util.OptionalInt",
+      "java.util.OptionalLong");
+
   public static class Property {
     final String methodName;
     final String humanName;
@@ -99,10 +116,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       annotations = buildAnnotations(element);
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
-      TypeMirror returnType = element.getReturnType();
-      instanceOfOptional = !TypeKind.TYPEVAR.equals(returnType.getKind())
-          && (MoreTypes.isTypeOf(Optional.class, returnType)
-              || MoreTypes.isTypeOf(com.google.common.base.Optional.class, returnType));
+      instanceOfOptional = isOptional(element.getReturnType());
     }
 
     public static TypeMirror getAnnotationValue(Element foo, Class<?> annotation) {
@@ -184,32 +198,58 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public boolean applicable(Context context) {
     Messager messager = context.processingEnvironment().getMessager();
 
-    // validate @GsonDefaultBuilder usage
-    Set<ExecutableElement> annotatedElements = ElementFilter
+    // validate @AutoValueGsonBuilder usage
+    Set<ExecutableElement> annotatedMethods = ElementFilter
         .methodsIn(context.autoValueClass().getEnclosedElements())
         .stream()
-        .filter(MoreElements.hasModifiers(STATIC)::apply)
-        .filter(e -> !MoreElements.hasModifiers(PRIVATE).apply(e))
-        .filter(e -> MoreElements.isAnnotationPresent(e, GsonDefaultBuilder.class))
+        .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
         .collect(Collectors.toSet());
 
-    if (!context.hasBuilder()) {
-      annotatedElements.stream().findFirst().ifPresent(method -> {
-        TypeElement declaringClass = (TypeElement) method.getEnclosingElement();
-        messager.printMessage(Kind.ERROR,
-            String.format(
-                "%s does not have builder, but found element <%s#%s> annotated with @GsonDefaultBuilder.",
-                context.autoValueClass().getQualifiedName(), declaringClass, method
-            ));
-      });
+    if (context.hasBuilder()) {
+      @SuppressWarnings("ConstantConditions") // should never NPE because class has a builder
+      TypeMirror builderType = findBuilderTypeElement(context.autoValueClass()).asType();
+
+      if (annotatedMethods.size() == 1) {
+        ExecutableElement builderMethod = Iterables.getOnlyElement(annotatedMethods);
+        boolean validApplication = isValidBuilderMethod(builderType).test(builderMethod);
+        if (!validApplication) {
+          messager.printMessage(Kind.ERROR, String.format("Found invalid @AutoValudGsonBuilder "
+                  + "usage in %s. @AutoValueGsonBuilder may only be applied to a single "
+                  + "non-private, static method with no args that return the @AutoValue.Builder "
+                  + "annotated type.",
+                  context.autoValueClass().getQualifiedName()));
+        }
+      }
+
+      if (annotatedMethods.size() > 1) {
+        messager.printMessage(Kind.ERROR, String.format("Found more than one method annotated with "
+            + "@AutoValueGsonBuilder in %s.", context.autoValueClass().getQualifiedName()));
+      }
+
+      // if no @AutoValueGsonBuilder annotated, see if builder() can be inferred
+      if (annotatedMethods.isEmpty()) {
+        long inferredBuilders = ElementFilter
+            .methodsIn(context.autoValueClass().getEnclosedElements()).stream()
+            .filter(isValidBuilderMethod(builderType))
+            .count();
+        if (inferredBuilders > 1) {
+          messager.printMessage(Kind.ERROR, String.format("Default builder could not be inferred "
+                  + "from %s. If there is more than one non-private, static, zero arg methods "
+                  + "returning the @AutoValue.Builder annotated type, indicate which method "
+                  + "AutoValueGson should use with @AutoValueGsonBuilder.",
+              context.autoValueClass().getQualifiedName()));
+        }
+      }
+    } else {
+      Optional<ExecutableElement> strayMethod = annotatedMethods.stream().findFirst();
+      strayMethod.ifPresent(executableElement ->
+          messager.printMessage(Kind.ERROR, String.format("%s does not have an @AutoValue.Builder "
+              + "annotated builder, but found @AutoValueGsonBuilder annotated method <%s>",
+          context.autoValueClass(),
+          executableElement.getSimpleName())));
     }
 
-    if (annotatedElements.size() > 1) {
-      messager.printMessage(Kind.ERROR, "Found more than one method with @GsonDefaultBuilder "
-          + "annotation.");
-    }
-
-    return validateTypeAdapter(context);
+    return isValidTypeAdapter(context);
   }
 
   @Override
@@ -541,13 +581,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
-    Optional<ExecutableElement> defaultBuilder = findDefaultBuilder(autoValueClassElement, builderContext.builderClass());
+    ExecutableElement defaultBuilder = findDefaultBuilder(autoValueClassElement, builderContext.builderClass());
 
     ClassName builderClassName = ClassName.get(builderContext.builderClass());
-    FieldSpec builder = FieldSpec.builder(builderClassName, "_builder").build();
-    if (defaultBuilder.isPresent()) {
+    FieldSpec builder = FieldSpec.builder(builderClassName, "builder").build();
+    if (defaultBuilder != null) {
       ClassName baseClass = ClassName.get(autoValueClassElement);
-      readMethod.addStatement("$T $N = $T.$L", builder.type, builder, baseClass, defaultBuilder.get());
+      readMethod.addStatement("$T $N = $T.$L", builder.type, builder, baseClass, defaultBuilder);
     } else {
       ClassName finalBuilderClassName = className.nestedClass(builderClassName.simpleName());
       readMethod.addStatement("$T $N = new $T()", builder.type, builder, finalBuilderClassName);
@@ -557,7 +597,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
 
-    FieldSpec name = FieldSpec.builder(String.class, "_name").build();
+    FieldSpec name = FieldSpec.builder(String.class, "name").build();
     readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
 
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
@@ -583,7 +623,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           .findFirst()
           .map(method ->
               CodeBlock.builder()
-                  .addStatement("_builder.$N($N.read($N))", method.getSimpleName(), adapters.get(prop), jsonReader)
+                  .addStatement("$N.$N($N.read($N))", builder, method.getSimpleName(), adapters.get(prop), jsonReader)
                   .build());
 
       // if the property is Optional<T>, see if there is an overloaded setter that accepts T
@@ -592,20 +632,19 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         setterBlock = setters.stream()
             .filter(e -> ClassName.get(e.getParameters().get(0).asType()).equals(optionalPropTypeArgument))
             .findFirst()
-            .map(method ->
-            {
+            .map(method -> {
               String propertyVarName = prop.humanName + "Property";
               return CodeBlock.builder()
                   .addStatement("$T $L = $N.read($N)", prop.type, propertyVarName,
                       adapters.get(prop), jsonReader)
                   .beginControlFlow("if ($L.isPresent())", propertyVarName)
-                  .addStatement("_builder.$N($L.get())", method.getSimpleName(), propertyVarName)
+                  .addStatement("$N.$N($L.get())", builder, method.getSimpleName(), propertyVarName)
                   .endControlFlow()
                   .build();
             });
       }
 
-      readMethod.addCode(setterBlock.get()); // S
+      readMethod.addCode(setterBlock.get());
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
@@ -621,13 +660,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("$N.endObject()", jsonReader);
 
     // find the build method to use
-    Optional<ExecutableElement> buildMethod = findBuildMethod(autoValueClassElement, builderContext.builderClass());
-    if (buildMethod.isPresent()) {
-      readMethod.addStatement("return $N.$N()", builder, buildMethod.get().getSimpleName());
+    ExecutableElement buildMethod = findBuildMethod(autoValueClassElement, builderContext.builderClass());
+    if (buildMethod != null) {
+      readMethod.addStatement("return $N.$N()", builder, buildMethod.getSimpleName());
     } else {
       processingEnvironment.getMessager().printMessage(Kind.ERROR,
-          String.format("Could not determine build method in %s. Provide a build method named"
-              + "\"build\" or annotate one with @GsonBuild.", builderContext.builderClass().getQualifiedName()));
+          String.format("Could not determine the build method in %s. If there is more than one "
+                  + "non-private, non-static, zero arg method returning %s, annotate the build method "
+                  + "to use with @AutoValueGsonBuild.",
+              builderContext.builderClass().getQualifiedName(), autoValueClassName));
     }
 
     return readMethod.build();
@@ -751,50 +792,74 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
   }
 
-  private static Optional<ExecutableElement> findDefaultBuilder(TypeElement autoValueClass, TypeElement builderClass) {
-    return ElementFilter.methodsIn(autoValueClass.getEnclosedElements())
+  @Nullable
+  private static TypeElement findBuilderTypeElement(TypeElement autoValueClass) {
+    return ElementFilter.typesIn(autoValueClass.getEnclosedElements())
         .stream()
-        .filter(e -> MoreElements.isAnnotationPresent(e, GsonDefaultBuilder.class))
-        .filter(MoreElements.hasModifiers(Modifier.STATIC)::apply)
-        .filter(e -> MoreTypes.equivalence().equivalent(e.getReturnType(), builderClass.asType()))
+        .filter(e-> MoreElements.isAnnotationPresent(e, AutoValue.Builder.class))
+        .findFirst()
+        .orElse(null);
+  }
+
+  @Nullable
+  private static ExecutableElement findDefaultBuilder(TypeElement autoValueClass, TypeElement builderClass) {
+    Set<ExecutableElement> builderMethods = ElementFilter.methodsIn(autoValueClass.getEnclosedElements())
+        .stream()
+        .filter(MoreElements.hasModifiers(PRIVATE).negate())
+        .filter(MoreElements.hasModifiers(Modifier.STATIC))
         .filter(e -> e.getParameters().isEmpty())
-        .findFirst();
+        .filter(e -> MoreTypes.equivalence().equivalent(e.getReturnType(), builderClass.asType()))
+        .collect(Collectors.toSet());
+
+    if (builderMethods.isEmpty()) {
+      return null;
+    } else if (builderMethods.size() == 1) {
+      return Iterables.getOnlyElement(builderMethods);
+    } else {
+      // Assume only one annotated method. Multiple matches are caught in applicable() step
+      return builderMethods.stream()
+          .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
+          .findFirst().orElse(null);
+    }
+  }
+
+  private static Predicate<ExecutableElement> isValidBuilderMethod(TypeMirror builderType) {
+    return ((Predicate<ExecutableElement>) (e -> MoreTypes.equivalence().equivalent(e.getReturnType(), builderType)))
+        .and(MoreElements.hasModifiers(PRIVATE).negate())
+        .and(MoreElements.hasModifiers(STATIC))
+        .and(e -> e.getParameters().isEmpty());
   }
 
   /**
-   * Searches the builder for an method has no parameters, returns the autovalue class, is not
-   * private, and is not static. If there is a valid method annotated with {@link GsonBuild}, return
-   * that method. Otherwise, return the method named "build" if present.
+   * Searches the builder for a non-private, non-static, zero arg method returning the @AutoValue
+   * annotated type.
    */
-  private static Optional<ExecutableElement> findBuildMethod(
+  @Nullable
+  private static ExecutableElement findBuildMethod(
       TypeElement autoValueClass, TypeElement builderElement) {
-    List<ExecutableElement> methods = ElementFilter.methodsIn(builderElement.getEnclosedElements())
+    Set<ExecutableElement> methods = ElementFilter.methodsIn(builderElement.getEnclosedElements())
         .stream()
-        .filter(e -> !MoreElements.hasModifiers(STATIC, PRIVATE).apply(e))
+        .filter(MoreElements.hasModifiers(STATIC, PRIVATE).negate())
         .filter(e -> e.getParameters().isEmpty())
         .filter(e -> MoreTypes.equivalence().equivalent(e.getReturnType(), autoValueClass.asType()))
-        .collect(Collectors.toList());
+        .collect(Collectors.toSet());
 
-    if (methods.isEmpty()) {
-      return Optional.empty();
+    if (methods.size() == 1) {
+      return Iterables.getOnlyElement(methods);
+    } else {
+      Set<ExecutableElement> annotatedMethods = methods.stream()
+          .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuild.class))
+          .collect(Collectors.toSet());
+
+      if (annotatedMethods.size() == 1) {
+        return Iterables.getOnlyElement(annotatedMethods);
+      }
     }
 
-    List<ExecutableElement> annotatedMethods = methods.stream()
-        .filter(e -> MoreElements.isAnnotationPresent(e, GsonBuild.class))
-        .collect(Collectors.toList());
-
-    if (annotatedMethods.size() > 1) {
-      return Optional.empty();
-    } else if (annotatedMethods.size() == 1) {
-      return Optional.of(Iterables.getOnlyElement(annotatedMethods));
-    }
-
-    return methods.stream()
-        .filter(e -> e.getSimpleName().contentEquals("build"))
-        .findFirst();
+    return null;
   }
 
-  static boolean validateTypeAdapter(Context context) {
+  static boolean isValidTypeAdapter(Context context) {
     Messager messager = context.processingEnvironment().getMessager();
 
     // check that the class contains a public static method returning a TypeAdapter
@@ -835,16 +900,25 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           return true;
         }
       } else {
-        messager.printMessage(Diagnostic.Kind.WARNING,
+        messager.printMessage(Kind.WARNING,
             String.format("Found public static method returning TypeAdapter<%s> on %s class. "
                 + "Skipping GsonTypeAdapter generation.", argument, type));
       }
     } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+      messager.printMessage(Kind.WARNING, "Found public static method returning "
           + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
     }
 
     return false;
   }
 
+  static boolean isOptional(TypeMirror type) {
+    if (type.getKind() != TypeKind.DECLARED) {
+      return false;
+    }
+    DeclaredType declaredType = MoreTypes.asDeclared(type);
+    TypeElement typeElement = MoreElements.asType(declaredType.asElement());
+    return OPTIONAL_CLASS_NAMES.contains(typeElement.getQualifiedName().toString())
+        && typeElement.getTypeParameters().size() == declaredType.getTypeArguments().size();
+  }
 }
