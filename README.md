@@ -76,8 +76,7 @@ deserialized.
 
 ```java
 @AutoValue public abstract class Foo {
-  abstract Optional<String> bar();
-  abstract Optional<String> baz();
+  abstract int bar();
   abstract String quux();
   
   @AutoValueGsonBuilder // required if there are multiple builder methods to indicate which to use
@@ -93,15 +92,14 @@ deserialized.
   
   @AutoValue.Builder
   public static abstract class Builder {
-    public abstract Builder bar(String s);
-    public abstract Builder baz(String s);
+    public abstract Builder bar(int i);
     public abstract Builder quux(String s);
     abstract Foo autoBuild();
     @AutoValueGsonBuild // required if there are multiple build methods to indicate which to use
     public Foo build() {
       Foo foo = autoBuild();
-      if (!(foo.bar().isPresent() || foo.baz().isPresent())) {
-        throw new IllegalArgumentException("Either one of both of the properties bar and baz must be present");
+      if (bar < 0) {
+        throw new IllegalArgumentException("bar must be greater than 0");
       }
       return foo;
     }
