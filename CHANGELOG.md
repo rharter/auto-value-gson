@@ -1,5 +1,12 @@
 # Change Log
 
+## version 0.5.0 (2017-07-07)
+
+* Allow ignoring fields for serialization/deserialization (#91)
+* Support non-public TypeAdapter factory methods (#121) (#122)
+* Make defaults off by default (#133)
+* Add @Generated annotation when available (#135)
+
 ## Version 0.4.6 (2017-02-03)
 
 * Serializes collections to null by default, adding compiler option to serialize to empty variants. (#103)

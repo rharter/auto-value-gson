@@ -22,6 +22,6 @@ allprojects {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.0-rc-2'
+    gradleVersion = '4.0'
     distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }

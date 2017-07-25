@@ -18,6 +18,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -40,6 +41,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -69,6 +71,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   /** Compiler flag to indicate that generated TypeAdapters should be mutable with setters for defaults. */
   static final String MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS
       = "autovaluegson.mutableAdaptersWithDefaultSetters";
+
+  private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+
+  private static final AnnotationSpec GENERATED =
+      AnnotationSpec.builder(Generated.class)
+          .addMember("value", "$S", AutoValueGsonExtension.class.getName())
+          .addMember("comments", "$S", GENERATED_COMMENTS)
+          .build();
 
   public static class Property {
     final String methodName;
@@ -225,6 +235,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .getOrDefault(MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS, "false"));
     collectionsDefaultToEmpty = Boolean.parseBoolean(env.getOptions()
         .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
+    boolean generatedAnnotationAvailable = context.processingEnvironment()
+        .getElementUtils()
+        .getTypeElement("javax.annotation.Generated") != null;
     List<Property> properties = readProperties(context.properties());
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
@@ -248,6 +261,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .superclass(superclasstype)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types));
+
+    if (generatedAnnotationAvailable) {
+      subclass.addAnnotation(GENERATED);
+    }
 
     if (!typeParams.isEmpty()) {
       subclass.addTypeVariables(params);
