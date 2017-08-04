@@ -32,7 +32,7 @@ task wrapper(type: Wrapper) {
 
 ext.deps = [
     // TODO: remove when AutoValue extensions support builder properties
-    autovalue: 'com.github.bryanstern.auto:auto-value:extension-builder-support-SNAPSHOT',
+    autovalue: 'com.github.bryanstern.auto:auto-value:8b585dcf62',
     gson     : 'com.google.code.gson:gson:2.8.1',
     junit    : 'junit:junit:4.12',
 ]
