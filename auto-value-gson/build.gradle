@@ -12,8 +12,7 @@ dependencies {
     api deps.autovalue
     compileOnly 'com.google.auto.service:auto-service:1.0-rc3'
     api 'com.google.auto:auto-common:0.8'
-    implementation 'com.google.guava:guava:22.0'
-    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    implementation 'com.google.guava:guava:23.0'
 
     testCompile deps.junit
     testCompile 'com.google.truth:truth:0.33'

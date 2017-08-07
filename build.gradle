@@ -14,9 +14,6 @@ buildscript {
 
 allprojects {
     repositories {
-        maven {
-            url 'http://oss.sonatype.org/content/repositories/snapshots'
-        }
         // TODO: remove when AutoValue extensions support builder properties
         maven {
             url 'https://jitpack.io'
