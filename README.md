@@ -25,6 +25,24 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
 }
 ```
 
+Additionally, you can set custom default values. This is disabled by default. See [Compiler options](#compiler-options) on how to enable this.
+
+```java
+@AutoValue public abstract class Foo {
+  abstract String bar();
+  @SerializedName("Baz") abstract String baz();
+  abstract int quux();
+  abstract String with_underscores();
+
+  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
+    return new AutoValue_Foo.GsonTypeAdapter(gson)
+      // You can set custom default values
+      .setDefaultQuux(4711)
+      .setDefaultWith_underscores("");
+  }
+}
+```
+
 Now build your project and de/serialize your Foo.
 
 ## The TypeAdapter
@@ -141,8 +159,9 @@ Gson gson = new GsonBuilder()
 
 ## Compiler options
 
-`autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
-types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`.
+- `autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
+types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`. By default this is `false`.
+- `autovaluegson.mutableAdaptersWithDefaultSetters` - Indicates that the generated TypeAdapter should be mutable with setters for default values. Value is `true` or `false`. By default this is `false`.
 
 ```gradle
 apt {
@@ -171,8 +190,8 @@ android {
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.4.6'
-provided 'com.ryanharter.auto.value:auto-value-gson:0.4.6'
+apt 'com.ryanharter.auto.value:auto-value-gson:0.5.0'
+provided 'com.ryanharter.auto.value:auto-value-gson:0.5.0'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
