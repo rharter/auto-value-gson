@@ -1,0 +1,15 @@
+apply plugin: 'java-library'
+apply plugin: 'maven-publish'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly deps.gson
+}
+
+apply from: rootProject.file('gradle/gradle-mvn-push.gradle')

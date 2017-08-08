@@ -7,7 +7,7 @@ dependencies {
     compileOnly deps.autovalue
     apt deps.autovalue
     apt project(':auto-value-gson')
-    compileOnly project(':auto-value-gson')
+    compileOnly project(':auto-value-gson-annotations')
 
     testCompile deps.junit
     testCompileOnly deps.autovalue
