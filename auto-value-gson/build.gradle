@@ -7,7 +7,7 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-    implementation project(':auto-value-gson-annotations')
+    api project(':auto-value-gson-annotations')
     api deps.gson
     implementation 'com.squareup:javapoet:1.9.0'
     api 'com.google.auto.value:auto-value:1.4.1'
