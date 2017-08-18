@@ -20,6 +20,21 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
   // The public static method returning a TypeAdapter<Foo> is what
   // tells auto-value-gson to create a TypeAdapter for Foo.
   public static TypeAdapter<Foo> typeAdapter(Gson gson) {
+    return new AutoValue_Foo.GsonTypeAdapter(gson);
+  }
+}
+```
+
+Additionally, you can set custom default values. This is disabled by default. See [Compiler options](#compiler-options) on how to enable this.
+
+```java
+@AutoValue public abstract class Foo {
+  abstract String bar();
+  @SerializedName("Baz") abstract String baz();
+  abstract int quux();
+  abstract String with_underscores();
+
+  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
     return new AutoValue_Foo.GsonTypeAdapter(gson)
       // You can set custom default values
       .setDefaultQuux(4711)
@@ -105,8 +120,9 @@ Gson gson = new GsonBuilder()
 
 ## Compiler options
 
-`autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
-types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`.
+- `autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
+types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`. By default this is `false`.
+- `autovaluegson.mutableAdaptersWithDefaultSetters` - Indicates that the generated TypeAdapter should be mutable with setters for default values. Value is `true` or `false`. By default this is `false`.
 
 ```gradle
 apt {
