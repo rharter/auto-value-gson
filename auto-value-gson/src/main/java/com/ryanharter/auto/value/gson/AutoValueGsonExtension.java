@@ -18,6 +18,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -29,7 +30,6 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
-
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -41,7 +41,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
+import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -67,6 +67,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   /** Compiler flag to indicate that collections/maps should default to their empty forms. Default is to default to null. */
   static final String COLLECTIONS_DEFAULT_TO_EMPTY = "autovaluegson.defaultCollectionsToEmpty";
+
+  /** Compiler flag to indicate that generated TypeAdapters should be mutable with setters for defaults. */
+  static final String MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS
+      = "autovaluegson.mutableAdaptersWithDefaultSetters";
+
+  private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+
+  private static final AnnotationSpec GENERATED =
+      AnnotationSpec.builder(Generated.class)
+          .addMember("value", "$S", AutoValueGsonExtension.class.getName())
+          .addMember("comments", "$S", GENERATED_COMMENTS)
+          .build();
 
   public static class Property {
     final String methodName;
@@ -160,6 +172,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
   }
 
+  private boolean defaultSetters = false;
+  private boolean collectionsDefaultToEmpty = false;
+
   @Override
   public boolean applicable(Context context) {
     // check that the class contains a public static method returning a TypeAdapter
@@ -215,6 +230,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
+    ProcessingEnvironment env = context.processingEnvironment();
+    defaultSetters = Boolean.parseBoolean(context.processingEnvironment().getOptions()
+        .getOrDefault(MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS, "false"));
+    collectionsDefaultToEmpty = Boolean.parseBoolean(env.getOptions()
+        .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
+    boolean generatedAnnotationAvailable = context.processingEnvironment()
+        .getElementUtils()
+        .getTypeElement("javax.annotation.Generated") != null;
     List<Property> properties = readProperties(context.properties());
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
@@ -238,6 +261,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .superclass(superclasstype)
         .addType(typeAdapter)
         .addMethod(generateConstructor(types));
+
+    if (generatedAnnotationAvailable) {
+      subclass.addAnnotation(GENERATED);
+    }
 
     if (!typeParams.isEmpty()) {
       subclass.addTypeVariables(params);
@@ -277,14 +304,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return fields.build();
   }
 
-  private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties,
-                                                            ProcessingEnvironment processingEnv) {
+  private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties) {
     ImmutableMap.Builder<Property, FieldSpec> builder = ImmutableMap.builder();
-    boolean collectionsDefault = Boolean.parseBoolean(processingEnv.getOptions()
-        .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
     for (Property prop : properties) {
       FieldSpec fieldSpec = FieldSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop), PRIVATE).build();
-      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec, collectionsDefault);
+      CodeBlock defaultValue = getDefaultValue(prop, fieldSpec);
       if (defaultValue == null) {
         defaultValue = CodeBlock.of("null");
       }
@@ -339,8 +363,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueTypeName);
 
-    Map<Property, FieldSpec> defaultValueFields = createDefaultValueFields(properties, context.processingEnvironment());
-
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
             .addModifiers(PUBLIC)
@@ -364,9 +386,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .asType();
     Types typeUtils = processingEnvironment.getTypeUtils();
 
+    Map<Property, FieldSpec> defaultValueFields = Collections.emptyMap();
+    if (defaultSetters) {
+      defaultValueFields = createDefaultValueFields(properties);
+    }
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
     for (Property prop : properties) {
-      if (!prop.shouldDeserialize() && !prop.nullable()) {
+      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
         // Property should be ignored for deserialization but is not marked as nullable - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
@@ -403,12 +429,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addModifiers(PUBLIC, STATIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
-        .addFields(defaultValueFields.values())
         .addMethod(constructor.build())
-        .addMethods(createDefaultMethods(gsonTypeAdapterName, properties))
         .addMethod(createWriteMethod(autoValueTypeName, adapters))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters));
 
+    if (defaultSetters) {
+        classBuilder.addMethods(createDefaultMethods(gsonTypeAdapterName, properties))
+            .addFields(defaultValueFields.values());
+    }
 
     return classBuilder.build();
   }
@@ -485,12 +513,24 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
     // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<Property, FieldSpec>(properties.size());
+    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
     for (Property prop : properties) {
       TypeName fieldType = prop.type;
       FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
       fields.put(prop, field);
-      readMethod.addStatement("$T $N = this.default$L", field.type, field.name, upperCamelizeHumanName(prop));
+
+      if (defaultSetters) {
+        readMethod.addStatement("$T $N = this.default$L", field.type, field.name, upperCamelizeHumanName(prop));
+      } else {
+        CodeBlock defaultValue = getDefaultValue(prop, field);
+        readMethod.addCode("$[$T $N = ", field.type, field);
+        if (defaultValue != null) {
+          readMethod.addCode(defaultValue);
+        } else {
+          readMethod.addCode("$L", "null");
+        }
+        readMethod.addCode(";\n$]");
+      }
     }
 
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
@@ -548,7 +588,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
-  private CodeBlock getDefaultValue(Property prop, FieldSpec field, boolean collectionsDefaultToEmpty) {
+  private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
     if (field.type.isPrimitive()) {
       String defaultValue = getDefaultPrimitiveValue(field.type);
       if (defaultValue != null) {

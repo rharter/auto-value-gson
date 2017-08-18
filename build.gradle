@@ -8,7 +8,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath "net.ltgt.gradle:gradle-apt-plugin:0.6"
+        classpath "net.ltgt.gradle:gradle-apt-plugin:0.10"
     }
 }
 
@@ -22,5 +22,10 @@ allprojects {
 }
 
 ext.deps = [
-    gson: 'com.google.code.gson:gson:2.8.0'
+    gson: 'com.google.code.gson:gson:2.8.1'
 ]
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.0'
+    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+}
