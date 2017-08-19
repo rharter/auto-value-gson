@@ -87,6 +87,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
     final TypeMirror typeAdapter;
+    final boolean nullable;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -95,6 +96,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
+      nullable = nullableAnnotation() != null;
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
     }
@@ -157,7 +159,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     public boolean nullable() {
-      return !nullableAnnotation().isEmpty();
+      return nullable;
     }
 
     public String nullableAnnotation() {
@@ -166,7 +168,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           return annotationString;
         }
       }
-      return "";
+      return null;
     }
 
     private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
