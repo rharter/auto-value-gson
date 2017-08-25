@@ -594,7 +594,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (defaultValue != null) {
         return CodeBlock.of("$L", defaultValue);
       } else {
-        return CodeBlock.of("$T.valueOf(null)", field.type, field, field.type.box());
+        return CodeBlock.of("$T.valueOf(null)", field.type);
       }
     }
     if (prop.nullable()) {
