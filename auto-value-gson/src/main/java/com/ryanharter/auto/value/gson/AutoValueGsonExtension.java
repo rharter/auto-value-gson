@@ -87,6 +87,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
     final TypeMirror typeAdapter;
+    final boolean nullable;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -95,6 +96,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
+      nullable = nullableAnnotation() != null;
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
     }
@@ -157,15 +159,23 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     public boolean nullable() {
-      return annotations.contains("Nullable");
+      return nullable;
+    }
+
+    public String nullableAnnotation() {
+      for (String annotationString : annotations) {
+        if (annotationString.equals("@Nullable") || annotationString.endsWith(".Nullable")) {
+          return annotationString;
+        }
+      }
+      return null;
     }
 
     private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-      List<? extends AnnotationMirror> annotations = element.getAnnotationMirrors();
-      for (AnnotationMirror annotation : annotations) {
-        builder.add(annotation.getAnnotationType().asElement().getSimpleName().toString());
+      for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
+        builder.add(annotation.getAnnotationType().asElement().toString());
       }
 
       return builder.build();
@@ -260,7 +270,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
         .superclass(superclasstype)
         .addType(typeAdapter)
-        .addMethod(generateConstructor(types));
+        .addMethod(generateConstructor(properties, types));
 
     if (generatedAnnotationAvailable) {
       subclass.addAnnotation(GENERATED);
@@ -323,11 +333,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, prop.humanName);
   }
 
-  MethodSpec generateConstructor(Map<String, TypeName> properties) {
+  MethodSpec generateConstructor(List<Property> properties, Map<String, TypeName> types) {
     List<ParameterSpec> params = Lists.newArrayList();
-    for (Map.Entry<String, TypeName> entry : properties.entrySet()) {
-      params.add(ParameterSpec.builder(entry.getValue(), entry.getKey()).build());
-    }
+      for (Property property : properties) {
+          ParameterSpec.Builder builder = ParameterSpec.builder(property.type, property.humanName);
+          if (property.nullable()) {
+              builder.addAnnotation(ClassName.bestGuess(property.nullableAnnotation()));
+          }
+          params.add(builder.build());
+      }
 
     MethodSpec.Builder builder = MethodSpec.constructorBuilder()
         .addParameters(params);
@@ -338,7 +352,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (i > 1) superFormat.append(", ");
     }
     superFormat.append(")");
-    builder.addStatement(superFormat.toString(), properties.keySet().toArray());
+    builder.addStatement(superFormat.toString(), types.keySet().toArray());
 
     return builder.build();
   }
