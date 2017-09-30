@@ -40,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -83,12 +84,60 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           .addMember("comments", "$S", GENERATED_COMMENTS)
           .build();
 
-  private static final ImmutableSet<TypeName> OPTIONAL_RAW_TYPENAMES = ImmutableSet.of(
-      TypeName.get(com.google.common.base.Optional.class),
-      TypeName.get(java.util.Optional.class),
-      TypeName.get(java.util.OptionalInt.class),
-      TypeName.get(java.util.OptionalDouble.class),
-      TypeName.get(java.util.OptionalLong.class));
+  public static class OptionalSpec {
+    public final TypeName wrappedType;
+    public final TypeName optionalRawType;
+    public final String orDefaultMethod;
+    public final String emptyMethod;
+
+    public OptionalSpec(TypeName wrappedType, TypeName optionalRawType, String orDefaultMethod, String emptyMethod) {
+      this.wrappedType = wrappedType;
+      this.optionalRawType = optionalRawType;
+      this.orDefaultMethod = orDefaultMethod;
+      this.emptyMethod = emptyMethod;
+    }
+
+    public OptionalSpec(TypeName wrappedType, TypeName optionalRawType, String orDefaultMethod) {
+      this(wrappedType, optionalRawType, orDefaultMethod, "empty()");
+    }
+
+    private static final TypeName GUAVA_OPTIONAL = TypeName.get(com.google.common.base.Optional.class);
+    private static final TypeName JAVA_OPTIONAL = TypeName.get(Optional.class);
+    private static final TypeName JAVA_OPTIONAL_INT = TypeName.get(OptionalInt.class);
+    private static final TypeName JAVA_OPTIONAL_LONG = TypeName.get(OptionalLong.class);
+    private static final TypeName JAVA_OPTIONAL_DOUBLE = TypeName.get(OptionalDouble.class);
+
+    private static final Optional<OptionalSpec> INTEGER = Optional.of(new OptionalSpec(TypeName.get(Integer.class), JAVA_OPTIONAL_INT, "orElse(0)"));
+    private static final Optional<OptionalSpec> LONG = Optional.of(new OptionalSpec(TypeName.get(Long.class), JAVA_OPTIONAL_LONG, "orElse(0l)"));
+    private static final Optional<OptionalSpec> DOUBLE = Optional.of(new OptionalSpec(TypeName.get(Double.class), JAVA_OPTIONAL_DOUBLE, "orElse(0d)"));
+
+    public static Optional<OptionalSpec> fromPropertyType(TypeName typeName) {
+      // TypeName equality is used here (instead of Class.isAssignableFrom())
+      // as it is not possible to extend Java or Guava optional classes.
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName parameterized = (ParameterizedTypeName) typeName;
+        if (parameterized.typeArguments.size() == 1) {
+          final TypeName wrappedType = parameterized.typeArguments.get(0);
+          if (parameterized.rawType.equals(JAVA_OPTIONAL)) {
+            return Optional.of(new OptionalSpec(wrappedType, parameterized.rawType, "orElse(null)"));
+          }
+          if (parameterized.rawType.equals(GUAVA_OPTIONAL)) {
+            return Optional.of(new OptionalSpec(wrappedType, parameterized.rawType, "orNull()", "absent()"));
+          }
+        }
+      }
+      if (JAVA_OPTIONAL_INT.equals(typeName)) {
+        return INTEGER;
+      }
+      if (JAVA_OPTIONAL_LONG.equals(typeName)) {
+        return LONG;
+      }
+      if (JAVA_OPTIONAL_DOUBLE.equals(typeName)) {
+        return DOUBLE;
+      }
+      return Optional.empty();
+    }
+  }
 
   public static class Property {
     final String methodName;
@@ -98,6 +147,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final ImmutableSet<String> annotations;
     final TypeMirror typeAdapter;
     final boolean nullable;
+    final Optional<OptionalSpec> optionalSpec;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -107,6 +157,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
       nullable = nullableAnnotation() != null;
+      optionalSpec = OptionalSpec.fromPropertyType(type);
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
     }
@@ -315,23 +366,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!property.shouldDeserialize() && !property.shouldSerialize()) {
         continue;
       }
-      //TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       TypeName type = property.type;
       if (type.isPrimitive()) {
         type = type.box();
-      } else if (type instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterized = (ParameterizedTypeName)type;
-        if (OPTIONAL_RAW_TYPENAMES.contains(parameterized.rawType) && parameterized.typeArguments.size() == 1) {
-          type = parameterized.typeArguments.get(0);
-        }
-      } else if (OPTIONAL_RAW_TYPENAMES.contains(type)) {
-        if (type.equals(TypeName.get(OptionalInt.class))) {
-          type = TypeName.get(Integer.class);
-        } else if (type.equals(TypeName.get(OptionalLong.class))) {
-          type = TypeName.get(Long.class);
-        } else if (type.equals(TypeName.get(OptionalDouble.class))) {
-          type = TypeName.get(Double.class);
-        }
+      } else if (property.optionalSpec.isPresent()) {
+        type = property.optionalSpec.get().wrappedType;
       }
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
       fields.put(property,
@@ -454,24 +493,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         } else {
           constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
         }
-      } else if (prop.type instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterized = (ParameterizedTypeName) prop.type;
-        if (OPTIONAL_RAW_TYPENAMES.contains(parameterized.rawType) && parameterized.typeArguments.size() == 1) {
-          TypeName type = parameterized.typeArguments.get(0);
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
-        } else {
-          constructor.addStatement("this.$N = ($T) $N.getAdapter($L)", field, field.type, gsonParam,
-              makeParameterizedType(prop.type, typeParams));
-        }
-      } else if (OPTIONAL_RAW_TYPENAMES.contains(prop.type)) {
-        if (prop.type.equals(TypeName.get(OptionalInt.class))) {
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, TypeName.get(Integer.class));
-        } else if (prop.type.equals(TypeName.get(OptionalLong.class))) {
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, TypeName.get(Long.class));
-        } else if (prop.type.equals(TypeName.get(OptionalDouble.class))) {
-          constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, TypeName.get(Double.class));
-        }
-      } else if (prop.type instanceof TypeVariableName) {
+      } else if (prop.optionalSpec.isPresent()) {
+        TypeName type = prop.optionalSpec.get().wrappedType;
+        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
+      } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
         constructor.addStatement("this.$N = ($T) $N.getAdapter($L)", field, field.type, gsonParam,
             makeParameterizedType(prop.type, typeParams));
       } else {
@@ -542,25 +567,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       FieldSpec field = entry.getValue();
       writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
 
-      if (OPTIONAL_RAW_TYPENAMES.contains(prop.type)) {
-        if (prop.type.equals(TypeName.get(OptionalInt.class))) {
-          writeMethod.addStatement("$N.write($N, $N.$N().orElse(0))", field, jsonWriter, annotatedParam, prop.methodName);
-        } else if (prop.type.equals(TypeName.get(OptionalLong.class))) {
-          writeMethod.addStatement("$N.write($N, $N.$N().orElse(0l))", field, jsonWriter, annotatedParam, prop.methodName);
-        } else if (prop.type.equals(TypeName.get(OptionalDouble.class))) {
-          writeMethod.addStatement("$N.write($N, $N.$N().orElse(0d))", field, jsonWriter, annotatedParam, prop.methodName);
-        }
-      } else if (prop.type instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterized = (ParameterizedTypeName) prop.type;
-        if (OPTIONAL_RAW_TYPENAMES.contains(parameterized.rawType) && parameterized.typeArguments.size() == 1) {
-          if (parameterized.rawType.equals(TypeName.get(java.util.Optional.class))) {
-            writeMethod.addStatement("$N.write($N, $N.$N().orElse(null))", field, jsonWriter, annotatedParam, prop.methodName);
-          } else if (parameterized.rawType.equals(TypeName.get(com.google.common.base.Optional.class))) {
-            writeMethod.addStatement("$N.write($N, $N.$N().orNull())", field, jsonWriter, annotatedParam, prop.methodName);
-          }
-        } else {
-          writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
-        }
+      if (prop.optionalSpec.isPresent()) {
+        writeMethod.addStatement("$N.write($N, $N.$N().$L)", field, jsonWriter, annotatedParam, prop.methodName, prop.optionalSpec.get().orDefaultMethod);
       } else {
         writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
       }
@@ -633,15 +641,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.addCode("case $S:\n", alternate);
       }
       readMethod.beginControlFlow("case $S:", prop.serializedName());
-      if (OPTIONAL_RAW_TYPENAMES.contains(prop.type)) {
-        readMethod.addStatement("$N = $T.of($N.read($N))", field, prop.type, adapters.get(prop), jsonReader);
-      } else if (prop.type instanceof ParameterizedTypeName) {
-        ParameterizedTypeName parameterized = (ParameterizedTypeName) prop.type;
-        if (OPTIONAL_RAW_TYPENAMES.contains(parameterized.rawType) && parameterized.typeArguments.size() == 1) {
-          readMethod.addStatement("$N = $T.of($N.read($N))", field, parameterized.rawType, adapters.get(prop), jsonReader);
-        } else {
-          readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop), jsonReader);
-        }
+      if (prop.optionalSpec.isPresent()) {
+        readMethod.addStatement("$N = $T.of($N.read($N))", field, prop.optionalSpec.get().optionalRawType, adapters.get(prop), jsonReader);
       } else {
         readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop), jsonReader);
       }
@@ -698,42 +699,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (typeElement == null) {
       return null;
     }
-    try {
-      Class<?> clazz = Class.forName(typeElement.getQualifiedName().toString());
-      if (clazz.isAssignableFrom(java.util.Optional.class)) {
-        return CodeBlock.of("$T.empty()", TypeName.get(java.util.Optional.class));
-      } else if (clazz.isAssignableFrom(com.google.common.base.Optional.class)) {
-        return CodeBlock.of("$T.absent()", TypeName.get(com.google.common.base.Optional.class));
-      } else if (clazz.isAssignableFrom(OptionalInt.class)) {
-        return CodeBlock.of("$T.empty()", TypeName.get(java.util.OptionalInt.class));
-      } else if (clazz.isAssignableFrom(OptionalLong.class)) {
-        return CodeBlock.of("$T.empty()", TypeName.get(java.util.OptionalLong.class));
-      } else if (clazz.isAssignableFrom(OptionalDouble.class)) {
-        return CodeBlock.of("$T.empty()", TypeName.get(java.util.OptionalDouble.class));
-      } else if (collectionsDefaultToEmpty) {
-        if (clazz.isAssignableFrom(List.class)) {
-          return CodeBlock.of("$T.emptyList()", TypeName.get(Collections.class));
-        } else if (clazz.isAssignableFrom(Map.class)) {
-          return CodeBlock.of("$T.emptyMap()", TypeName.get(Collections.class));
-        } else if (clazz.isAssignableFrom(Set.class)) {
-          return CodeBlock.of("$T.emptySet()", TypeName.get(Collections.class));
-        } else if (clazz.isAssignableFrom(ImmutableList.class)) {
-          return CodeBlock.of("$T.of()", TypeName.get(ImmutableList.class));
-        } else if (clazz.isAssignableFrom(ImmutableMap.class)) {
-          return CodeBlock.of("$T.of()", TypeName.get(ImmutableMap.class));
-        } else if (clazz.isAssignableFrom(ImmutableSet.class)) {
-          return CodeBlock.of("$T.of()", TypeName.get(ImmutableSet.class));
-        } else {
-          return null;
-        }
-      }
-    } catch (ClassNotFoundException e) {
-      return null;
+    if (prop.optionalSpec.isPresent()) {
+      OptionalSpec opt = prop.optionalSpec.get();
+      return CodeBlock.of("$T.$L", opt.optionalRawType, opt.emptyMethod);
     }
-
-    return null;
-    // TODO deleteme
-    /*
     if (collectionsDefaultToEmpty) {
       try {
         Class<?> clazz = Class.forName(typeElement.getQualifiedName()
@@ -759,8 +728,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     } else {
       return null;
     }
-    */
-    // END TODO deleteme
   }
 
   /**
