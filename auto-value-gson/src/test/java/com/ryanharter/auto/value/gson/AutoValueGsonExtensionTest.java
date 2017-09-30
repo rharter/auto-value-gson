@@ -1366,9 +1366,18 @@ public class AutoValueGsonExtensionTest {
         + "}"
     );
 
+    // Collections default to empty
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
         .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+
+    // Collections do not default to empty
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
@@ -1793,9 +1802,20 @@ public class AutoValueGsonExtensionTest {
         + "}"
     );
 
+    // Collections do not default to empty
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
         .withCompilerOptions("-A" + AutoValueGsonExtension.MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS + "=true")
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+
+    // Collections default to empty
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS + "=true")
+        .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
@@ -2112,8 +2132,397 @@ public class AutoValueGsonExtensionTest {
         + "}"
     );
 
+    // Collections default to empty
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+
+    // Collections do not default to empty
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+  }
+
+  @Test public void simpleWithGuavaOptionalAndDefaults() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.gson.annotations.SerializedName;\n"
+        + "import com.ryanharter.auto.value.gson.GsonTypeAdapter;\n"
+        + "import com.ryanharter.auto.value.gson.Nullable;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.common.base.Optional;\n"
+        + "import com.google.common.collect.ImmutableMap;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.TypeAdapterFactory;\n"
+        + "import com.google.gson.reflect.TypeToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import java.io.IOException;\n"
+        + "import java.util.List;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
+        + "  }\n"
+        // Reference type
+        + "public abstract Optional<String> a();\n"
+        // Array type
+        + "public abstract Optional<int[]> b();\n"
+        // Boxed primitive type
+        + "public abstract Optional<Integer> c();\n"
+        // SerializedName
+        + "@SerializedName(\"_D\") public abstract Optional<String> d();\n"
+        // Nullable type
+        + "@Nullable abstract Optional<String> e();\n"
+        // Parametrized type, multiple parameters
+        + "public abstract Optional<ImmutableMap<String, Number>> f();\n"
+        // Parametrized type, single parameter
+        + "public abstract Optional<Set<String>> g();\n"
+        // Nested parameterized type
+        + "public abstract Optional<Map<String, Set<String>>> h();\n"
+        // SerializedName with alternate
+        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract Optional<String> i();\n"
+        // Nullable collection type
+        + "@Nullable public abstract Optional<List<String>> j();\n"
+        // Custom adapter
+        + "@GsonTypeAdapter(TestTypeAdapter.class) public abstract Optional<String> k();\n"
+        // Custom adapter with generics
+        + "@GsonTypeAdapter(TestListTypeAdapter.class) public abstract Optional<List<String>> l();\n"
+        // Custom adapter factory
+        + "@GsonTypeAdapter(TestTypeAdapterFactory.class) public abstract Optional<String> m();\n"
+        // Custom adapter factory with generics
+        + "@GsonTypeAdapter(TestTypeAdapterFactory.class) public abstract Optional<List<String>> n();\n"
+        +
+        "  @AutoValue.Builder public static abstract class Builder {\n" +
+        "    public abstract Builder a(String a);\n" +
+        "    public abstract Builder b(int[] b);\n" +
+        "    public abstract Builder c(int c);\n" +
+        "    public abstract Builder d(String d);\n" +
+        "    public abstract Builder e(String e);\n" +
+        "    public abstract Builder f(ImmutableMap<String, Number> f);\n" +
+        "    public abstract Builder g(Set<String> g);\n" +
+        "    public abstract Builder h(Map<String, Set<String>> h);\n" +
+        "    public abstract Builder i(String i);\n" +
+        "    public abstract Builder j(List<String> j);\n" +
+        "    public abstract Builder k(String k);\n" +
+        "    public abstract Builder l(List<String> l);\n" +
+        "    public abstract Builder m(String m);\n" +
+        "    public abstract Builder n(List<String> n);\n" +
+        "    public abstract Test build();\n" +
+        "  }\n" +
+        "  public static class TestTypeAdapter extends TypeAdapter<String> {\n" +
+        "    @Override public void write(JsonWriter out, String value) throws IOException {}\n" +
+        "    @Override public String read(JsonReader in) throws IOException { return null; }\n" +
+        "  }\n" +
+        "  public static class TestListTypeAdapter extends TypeAdapter<List<String>> {\n" +
+        "    @Override public void write(JsonWriter out, List<String> value) throws IOException {}\n" +
+        "    @Override public List<String> read(JsonReader in) throws IOException { return null; }\n" +
+        "  }\n" +
+        "  public static class TestTypeAdapterFactory implements TypeAdapterFactory {\n" +
+        "    @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) { return null; }\n" +
+        "  }\n"
+        + "}\n"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
+        + "package test;\n"
+        + "\n"
+        + "import com.google.common.base.Optional;\n"
+        + "import com.google.common.collect.ImmutableMap;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.reflect.TypeToken;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import com.google.gson.stream.JsonToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import com.ryanharter.auto.value.gson.Nullable;\n"
+        + "import java.io.IOException;\n"
+        + "import java.lang.Integer;\n"
+        + "import java.lang.Number;\n"
+        + "import java.lang.Override;\n"
+        + "import java.lang.String;\n"
+        + "import java.util.List;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "import javax.annotation.Generated;\n"
+        + "\n"
+        + "@Generated(\n"
+        + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
+        + "    comments = \"https://github.com/rharter/auto-value-gson\"\n"
+        + ")\n"
+        + "final class AutoValue_Test extends $AutoValue_Test {\n"
+        + "  AutoValue_Test(Optional<String> a, Optional<int[]> b, Optional<Integer> c, Optional<String> d,\n"
+        + "      @Nullable Optional<String> e, Optional<ImmutableMap<String,Number>> f, Optional<Set<String>> g,\n"
+        + "      Optional<Map<String, Set<String>>> h, Optional<String> i, @Nullable Optional<List<String>> j,\n"
+        + "      Optional<String> k, Optional<List<String>> l, Optional<String> m, Optional<List<String>> n) {\n"
+        + "    super(a, b, c, d, e, f, g, h, i, j, k, l, m, n);\n"
+        + "  }\n"
+        + "\n"
+        + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
+        + "    private final TypeAdapter<String> aAdapter;\n"
+        + "    private final TypeAdapter<int[]> bAdapter;\n"
+        + "    private final TypeAdapter<Integer> cAdapter;\n"
+        + "    private final TypeAdapter<String> dAdapter;\n"
+        + "    private final TypeAdapter<String> eAdapter;\n"
+        + "    private final TypeAdapter<ImmutableMap<String, Number>> fAdapter;\n"
+        + "    private final TypeAdapter<Set<String>> gAdapter;\n"
+        + "    private final TypeAdapter<Map<String, Set<String>>> hAdapter;\n"
+        + "    private final TypeAdapter<String> iAdapter;\n"
+        + "    private final TypeAdapter<List<String>> jAdapter;\n"
+        + "    private final TypeAdapter<String> kAdapter;\n"
+        + "    private final TypeAdapter<List<String>> lAdapter;\n"
+        + "    private final TypeAdapter<String> mAdapter;\n"
+        + "    private final TypeAdapter<List<String>> nAdapter;\n"
+        + "    private Optional<String> defaultA = Optional.absent();\n"
+        + "    private Optional<int[]> defaultB = Optional.absent();\n"
+        + "    private Optional<Integer> defaultC = Optional.absent();\n"
+        + "    private Optional<String> defaultD = Optional.absent();\n"
+        + "    private Optional<String> defaultE = Optional.absent();\n"
+        + "    private Optional<ImmutableMap<String, Number>> defaultF = Optional.absent();\n"
+        + "    private Optional<Set<String>> defaultG = Optional.absent();\n"
+        + "    private Optional<Map<String, Set<String>>> defaultH = Optional.absent();\n"
+        + "    private Optional<String> defaultI = Optional.absent();\n"
+        + "    private Optional<List<String>> defaultJ = Optional.absent();\n"
+        + "    private Optional<String> defaultK = Optional.absent();\n"
+        + "    private Optional<List<String>> defaultL = Optional.absent();\n"
+        + "    private Optional<String> defaultM = Optional.absent();\n"
+        + "    private Optional<List<String>> defaultN = Optional.absent();\n"
+        + "    public GsonTypeAdapter(Gson gson) {\n"
+        + "      this.aAdapter = gson.getAdapter(String.class);\n"
+        + "      this.bAdapter = gson.getAdapter(int[].class);\n"
+        + "      this.cAdapter = gson.getAdapter(Integer.class);\n"
+        + "      this.dAdapter = gson.getAdapter(String.class);\n"
+        + "      this.eAdapter = gson.getAdapter(String.class);\n"
+        + "      this.fAdapter = (TypeAdapter<ImmutableMap<String, Number>>) gson.getAdapter"
+        + "(TypeToken.getParameterized(ImmutableMap.class, String.class, Number.class));\n"
+        + "      this.gAdapter = (TypeAdapter<Set<String>>) gson.getAdapter(TypeToken"
+        + ".getParameterized(Set.class, String.class));\n"
+        + "      this.hAdapter = (TypeAdapter<Map<String, Set<String>>>) gson.getAdapter"
+        + "(TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Set"
+        + ".class, String.class).getType()));\n"
+        + "      this.iAdapter = gson.getAdapter(String.class);\n"
+        + "      this.jAdapter = (TypeAdapter<List<String>>) gson.getAdapter(TypeToken"
+        + ".getParameterized(List.class, String.class));\n"
+        + "      this.kAdapter = new Test.TestTypeAdapter();\n"
+        + "      this.lAdapter = new Test.TestListTypeAdapter();\n"
+        + "      this.mAdapter = new Test.TestTypeAdapterFactory().create(gson, TypeToken.get"
+        + "(String.class));\n"
+        + "      this.nAdapter = (TypeAdapter<List<String>>) new Test.TestTypeAdapterFactory()"
+        + ".create(gson, TypeToken.getParameterized(List.class, String.class));\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
+        + "      if (object == null) {\n"
+        + "        jsonWriter.nullValue();\n"
+        + "        return;\n"
+        + "      }\n"
+        + "      jsonWriter.beginObject();\n"
+        + "      jsonWriter.name(\"a\");\n"
+        + "      aAdapter.write(jsonWriter, object.a().orNull());\n"
+        + "      jsonWriter.name(\"b\");\n"
+        + "      bAdapter.write(jsonWriter, object.b().orNull());\n"
+        + "      jsonWriter.name(\"c\");\n"
+        + "      cAdapter.write(jsonWriter, object.c().orNull());\n"
+        + "      jsonWriter.name(\"_D\");\n"
+        + "      dAdapter.write(jsonWriter, object.d().orNull());\n"
+        + "      jsonWriter.name(\"e\");\n"
+        + "      eAdapter.write(jsonWriter, object.e().orNull());\n"
+        + "      jsonWriter.name(\"f\");\n"
+        + "      fAdapter.write(jsonWriter, object.f().orNull());\n"
+        + "      jsonWriter.name(\"g\");\n"
+        + "      gAdapter.write(jsonWriter, object.g().orNull());\n"
+        + "      jsonWriter.name(\"h\");\n"
+        + "      hAdapter.write(jsonWriter, object.h().orNull());\n"
+        + "      jsonWriter.name(\"_I\");\n"
+        + "      iAdapter.write(jsonWriter, object.i().orNull());\n"
+        + "      jsonWriter.name(\"j\");\n"
+        + "      jAdapter.write(jsonWriter, object.j().orNull());\n"
+        + "      jsonWriter.name(\"k\");\n"
+        + "      kAdapter.write(jsonWriter, object.k().orNull());\n"
+        + "      jsonWriter.name(\"l\");\n"
+        + "      lAdapter.write(jsonWriter, object.l().orNull());\n"
+        + "      jsonWriter.name(\"m\");\n"
+        + "      mAdapter.write(jsonWriter, object.m().orNull());\n"
+        + "      jsonWriter.name(\"n\");\n"
+        + "      nAdapter.write(jsonWriter, object.n().orNull());\n"
+        + "      jsonWriter.endObject();\n"
+        + "    }\n"
+        + "    @Override\n"
+        + "    public Test read(JsonReader jsonReader) throws IOException {\n"
+        + "      if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "        jsonReader.nextNull();\n"
+        + "        return null;\n"
+        + "      }\n"
+        + "      jsonReader.beginObject();\n"
+        + "      Optional<String> a = this.defaultA;\n"
+        + "      Optional<int[]> b = this.defaultB;\n"
+        + "      Optional<Integer> c = this.defaultC;\n"
+        + "      Optional<String> d = this.defaultD;\n"
+        + "      Optional<String> e = this.defaultE;\n"
+        + "      Optional<ImmutableMap<String, Number>> f = this.defaultF;\n"
+        + "      Optional<Set<String>> g = this.defaultG;\n"
+        + "      Optional<Map<String, Set<String>>> h = this.defaultH;\n"
+        + "      Optional<String> i = this.defaultI;\n"
+        + "      Optional<List<String>> j = this.defaultJ;\n"
+        + "      Optional<String> k = this.defaultK;\n"
+        + "      Optional<List<String>> l = this.defaultL;\n"
+        + "      Optional<String> m = this.defaultM;\n"
+        + "      Optional<List<String>> n = this.defaultN;\n"
+        + "      while (jsonReader.hasNext()) {\n"
+        + "        String _name = jsonReader.nextName();\n"
+        + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "          jsonReader.nextNull();\n"
+        + "          continue;\n"
+        + "        }\n"
+        + "        switch (_name) {\n"
+        + "          case \"a\": {\n"
+        + "            a = Optional.of(aAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"b\": {\n"
+        + "            b = Optional.of(bAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"c\": {\n"
+        + "            c = Optional.of(cAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"_D\": {\n"
+        + "            d = Optional.of(dAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"e\": {\n"
+        + "            e = Optional.of(eAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"f\": {\n"
+        + "            f = Optional.of(fAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"g\": {\n"
+        + "            g = Optional.of(gAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"h\": {\n"
+        + "            h = Optional.of(hAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"_I_1\":\n"
+        + "          case \"_I_2\":\n"
+        + "          case \"_I\": {\n"
+        + "            i = Optional.of(iAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"j\": {\n"
+        + "            j = Optional.of(jAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"k\": {\n"
+        + "            k = Optional.of(kAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"l\": {\n"
+        + "            l = Optional.of(lAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"m\": {\n"
+        + "            m = Optional.of(mAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          case \"n\": {\n"
+        + "            n = Optional.of(nAdapter.read(jsonReader));\n"
+        + "            break;\n"
+        + "          }\n"
+        + "          default: {\n"
+        + "            jsonReader.skipValue();\n"
+        + "          }\n"
+        + "        }\n"
+        + "      }\n"
+        + "      jsonReader.endObject();\n"
+        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h, i, j, k, l, m, n);\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultA(String defaultA) {\n"
+        + "      this.defaultA = Optional.fromNullable(defaultA);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultB(int[] defaultB) {\n"
+        + "      this.defaultB = Optional.fromNullable(defaultB);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultC(Integer defaultC) {\n"
+        + "      this.defaultC = Optional.fromNullable(defaultC);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultD(String defaultD) {\n"
+        + "      this.defaultD = Optional.fromNullable(defaultD);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultE(String defaultE) {\n"
+        + "      this.defaultE = Optional.fromNullable(defaultE);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultF(ImmutableMap<String, Number> defaultF) {\n"
+        + "      this.defaultF = Optional.fromNullable(defaultF);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultG(Set<String> defaultG) {\n"
+        + "      this.defaultG = Optional.fromNullable(defaultG);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultH(Map<String, Set<String>> defaultH) {\n"
+        + "      this.defaultH = Optional.fromNullable(defaultH);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultI(String defaultI) {\n"
+        + "      this.defaultI = Optional.fromNullable(defaultI);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultJ(List<String> defaultJ) {\n"
+        + "      this.defaultJ = Optional.fromNullable(defaultJ);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultK(String defaultK) {\n"
+        + "      this.defaultK = Optional.fromNullable(defaultK);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultL(List<String> defaultL) {\n"
+        + "      this.defaultL = Optional.fromNullable(defaultL);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultM(String defaultM) {\n"
+        + "      this.defaultM = Optional.fromNullable(defaultM);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "    public GsonTypeAdapter setDefaultN(List<String> defaultN) {\n"
+        + "      this.defaultN = Optional.fromNullable(defaultN);\n"
+        + "      return this;\n"
+        + "    }\n"
+        + "  }\n"
+        + "}"
+    );
+
+    // Collections do not default to empty
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS + "=true")
+        .processedWith(new AutoValueProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
+
+    // Collections default to empty
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS + "=true")
         .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
