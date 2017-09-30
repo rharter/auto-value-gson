@@ -124,8 +124,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     private static final Optional<OptionalSpec> DOUBLE = Optional.of(fromPrimitive(TypeName.get(Double.class), JAVA_OPTIONAL_DOUBLE, "orElse(0d)"));
 
     public static Optional<OptionalSpec> fromPropertyType(TypeName typeName) {
-      // TypeName equality is used here (instead of Class.isAssignableFrom())
-      // as it is not possible to extend Java or Guava optional classes.
       if (typeName instanceof ParameterizedTypeName) {
         ParameterizedTypeName parameterized = (ParameterizedTypeName) typeName;
         if (parameterized.typeArguments.size() == 1) {
