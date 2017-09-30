@@ -484,8 +484,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
     ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
     for (Property prop : properties) {
-      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
-        // Property should be ignored for deserialization but is not marked as nullable - we require a default value
+      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable() && !prop.optionalSpec.isPresent()) {
+        // Property should be ignored for deserialization but is neither nullable nor optional - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
