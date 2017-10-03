@@ -1,6 +1,13 @@
 # Change Log
 
-## version 0.5.0 (2017-07-07)
+## Version 0.6.0 (2017-10-03)
+
+* Standalone annotations artifact (#118) (#126)
+* Generate Nullable annotation at constructor arguments. (#144)
+* Remove unused arguments to CodeBlock.of() (#146)
+* Support inner Factory class generation (#117)
+
+## Version 0.5.0 (2017-07-07)
 
 * Allow ignoring fields for serialization/deserialization (#91)
 * Support non-public TypeAdapter factory methods (#121) (#122)
