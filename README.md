@@ -152,7 +152,7 @@ Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```groovy
 apt 'com.ryanharter.auto.value:auto-value-gson:0.6.0'
-provided 'com.ryanharter.auto.value:auto-value-gson:0.6.0'
+provided 'com.ryanharter.auto.value:auto-value-gson-annotations:0.6.0'
 ```
 
 (Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
