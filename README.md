@@ -125,14 +125,6 @@ types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`. By
 - `autovaluegson.mutableAdaptersWithDefaultSetters` - Indicates that the generated TypeAdapter should be mutable with setters for default values. Value is `true` or `false`. By default this is `false`.
 
 ```gradle
-apt {
- arguments {
-   autovaluegson.defaultCollectionsToEmpty 'true'
- }
-}
-```
-Starting with the Android Gradle plugin version 2.2 and when using `annotationProcessor` instead of `apt`:
-```gradle
 android {
   // ...
   defaultConfig {
@@ -151,11 +143,9 @@ android {
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```groovy
-apt 'com.ryanharter.auto.value:auto-value-gson:0.6.0'
+annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.6.0'
 provided 'com.ryanharter.auto.value:auto-value-gson-annotations:0.6.0'
 ```
-
-(Using the [android-apt](https://bitbucket.org/hvisser/android-apt) plugin)
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
 
