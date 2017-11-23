@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -24,6 +25,7 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.NameAllocator;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -297,18 +299,25 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return values;
   }
 
-  ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
-    ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
+  ImmutableMap<TypeName, FieldSpec> createFields(List<Property> properties) {
+    ImmutableMap.Builder<TypeName, FieldSpec> fields = ImmutableMap.builder();
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
+    Set<TypeName> seenTypes = Sets.newHashSet();
+    NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
       if (!property.shouldDeserialize() && !property.shouldSerialize()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
-      fields.put(property,
-              FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
+      if (!seenTypes.contains(property.type)) {
+        fields.put(property.type,
+                FieldSpec.builder(adp,
+                    nameAllocator.newName(property.type.toString()) + "Adapter", PRIVATE, FINAL)
+                    .build());
+        seenTypes.add(property.type);
+      }
     }
 
     return fields.build();
@@ -404,17 +413,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (defaultSetters) {
       defaultValueFields = createDefaultValueFields(properties);
     }
-    ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
+    ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
+    Set<FieldSpec> initializedFields = Sets.newHashSet();
     for (Property prop : properties) {
       if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
         // Property should be ignored for deserialization but is not marked as nullable - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
-      if (!prop.shouldDeserialize() && !prop.shouldSerialize()) {
+      FieldSpec field = adapters.get(prop.type);
+      if ((!prop.shouldDeserialize() && !prop.shouldSerialize()) || initializedFields.contains(field)) {
         continue;
       }
-      FieldSpec field = adapters.get(prop);
       if (prop.typeAdapter != null) {
         if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
           if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
@@ -434,6 +444,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
         constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
       }
+      initializedFields.add(field);
     }
 
     ClassName gsonTypeAdapterName = className.nestedClass("GsonTypeAdapter");
@@ -444,7 +455,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createWriteMethod(autoValueTypeName, adapters))
+        .addMethod(createWriteMethod(autoValueTypeName, properties, adapters))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters));
 
     if (defaultSetters) {
@@ -474,7 +485,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
-                                      ImmutableMap<Property, FieldSpec> adapters) {
+                                      List<Property> properties,
+                                      ImmutableMap<TypeName, FieldSpec> adapters) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
@@ -490,13 +502,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     writeMethod.endControlFlow();
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-      Property prop = entry.getKey();
+    for (Property prop : properties) {
       if (!prop.shouldSerialize()) {
         continue;
       }
-      FieldSpec field = entry.getValue();
-
+      FieldSpec field = adapters.get(prop.type);
       if (prop.nullable()) {
         writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.methodName);
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
@@ -515,7 +525,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public MethodSpec createReadMethod(ClassName className,
                                      TypeName autoValueClassName,
                                      List<Property> properties,
-                                     ImmutableMap<Property, FieldSpec> adapters) {
+                                     ImmutableMap<TypeName, FieldSpec> adapters) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
         .addAnnotation(Override.class)
@@ -575,7 +585,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.addCode("case $S:\n", alternate);
       }
       readMethod.beginControlFlow("case $S:", prop.serializedName());
-      readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop), jsonReader);
+      readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop.type), jsonReader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
