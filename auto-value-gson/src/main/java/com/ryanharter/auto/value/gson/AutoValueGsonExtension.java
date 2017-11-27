@@ -507,15 +507,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         continue;
       }
       FieldSpec field = adapters.get(prop.type);
-      if (prop.nullable()) {
-        writeMethod.beginControlFlow("if ($N.$N() != null)", annotatedParam, prop.methodName);
-        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
-        writeMethod.endControlFlow();
-      } else {
-        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-        writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
-      }
+      writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
+      writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 

@@ -38,33 +38,4 @@ public class PersonTest {
         Assert.assertEquals(1, fromJson.gender());
         Assert.assertEquals(date, fromJson.birthdate());
     }
-
-    @Test
-    public void testPersonNoAddress() throws Exception {
-        // No address should result in no address key in the json as well
-        final DateFormat df = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        String birthdate = "2007-11-11";
-        Date date = df.parse(birthdate);
-
-        Gson gson = new GsonBuilder()
-                .registerTypeAdapterFactory(SampleAdapterFactory.create())
-                .create();
-        Person person = Person.builder()
-                .name("Piasy")
-                .gender(1)
-                .age(23)
-                .birthdate(date)
-                .build();
-        String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":23,\"birthdate\":\"" + birthdate + "\"}";
-
-        String toJson = gson.toJson(person, Person.class);
-        Assert.assertEquals(json, toJson);
-
-        Person fromJson = gson.fromJson(json, Person.class);
-        Assert.assertEquals("Piasy", fromJson.name());
-        Assert.assertEquals(23, fromJson.age());
-        Assert.assertEquals(1, fromJson.gender());
-        Assert.assertEquals(date, fromJson.birthdate());
-    }
 }
