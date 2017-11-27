@@ -3,8 +3,8 @@ package com.ryanharter.auto.value.gson;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Defaults;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +20,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -43,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -58,6 +60,8 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -314,13 +318,45 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!seenTypes.contains(property.type)) {
         fields.put(property.type,
                 FieldSpec.builder(adp,
-                    nameAllocator.newName(property.type.toString()) + "Adapter", PRIVATE, FINAL)
+                    nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, FINAL)
                     .build());
         seenTypes.add(property.type);
       }
     }
 
     return fields.build();
+  }
+
+  private static String simpleName(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return UPPER_CAMEL.to(LOWER_CAMEL, ((ClassName) typeName).simpleName());
+    } else if (typeName instanceof ParameterizedTypeName) {
+      ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+      return UPPER_CAMEL.to(LOWER_CAMEL, parameterizedTypeName.rawType.simpleName())
+          + (parameterizedTypeName.typeArguments.isEmpty() ? "" : "__")
+          + simpleName(parameterizedTypeName.typeArguments);
+    } else if (typeName instanceof ArrayTypeName) {
+      return "array__" + simpleName(((ArrayTypeName) typeName).componentType);
+    } else if (typeName instanceof WildcardTypeName) {
+      WildcardTypeName wildcardTypeName = (WildcardTypeName) typeName;
+      return "wildcard__"
+          + simpleName(ImmutableList.<TypeName>builder().addAll(wildcardTypeName.lowerBounds)
+          .addAll(wildcardTypeName.upperBounds)
+          .build());
+    } else if (typeName instanceof TypeVariableName) {
+      TypeVariableName variable = (TypeVariableName) typeName;
+      return variable.name
+          + (variable.bounds.isEmpty() ? "" : "__")
+          + simpleName(variable.bounds);
+    } else {
+      return typeName.toString();
+    }
+  }
+
+  private static String simpleName(List<TypeName> typeNames) {
+    return Joiner.on("_").join(typeNames.stream()
+            .map(AutoValueGsonExtension::simpleName)
+            .collect(Collectors.toList()));
   }
 
   private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties) {
@@ -339,7 +375,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private String upperCamelizeHumanName(Property prop) {
-    return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, prop.humanName);
+    return LOWER_CAMEL.to(UPPER_CAMEL, prop.humanName);
   }
 
   MethodSpec generateConstructor(List<Property> properties, Map<String, TypeName> types) {
