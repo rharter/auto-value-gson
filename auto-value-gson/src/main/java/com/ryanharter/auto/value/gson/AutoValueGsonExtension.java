@@ -3,13 +3,14 @@ package com.ryanharter.auto.value.gson;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Defaults;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -19,11 +20,13 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.NameAllocator;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -41,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -56,6 +60,8 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -297,21 +303,60 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return values;
   }
 
-  ImmutableMap<Property, FieldSpec> createFields(List<Property> properties) {
-    ImmutableMap.Builder<Property, FieldSpec> fields = ImmutableMap.builder();
+  ImmutableMap<TypeName, FieldSpec> createFields(List<Property> properties) {
+    ImmutableMap.Builder<TypeName, FieldSpec> fields = ImmutableMap.builder();
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
+    Set<TypeName> seenTypes = Sets.newHashSet();
+    NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
       if (!property.shouldDeserialize() && !property.shouldSerialize()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
-      fields.put(property,
-              FieldSpec.builder(adp, property.humanName + "Adapter", PRIVATE, FINAL).build());
+      if (!seenTypes.contains(property.type)) {
+        fields.put(property.type,
+                FieldSpec.builder(adp,
+                    nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, FINAL)
+                    .build());
+        seenTypes.add(property.type);
+      }
     }
 
     return fields.build();
+  }
+
+  private static String simpleName(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return UPPER_CAMEL.to(LOWER_CAMEL, ((ClassName) typeName).simpleName());
+    } else if (typeName instanceof ParameterizedTypeName) {
+      ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) typeName;
+      return UPPER_CAMEL.to(LOWER_CAMEL, parameterizedTypeName.rawType.simpleName())
+          + (parameterizedTypeName.typeArguments.isEmpty() ? "" : "__")
+          + simpleName(parameterizedTypeName.typeArguments);
+    } else if (typeName instanceof ArrayTypeName) {
+      return "array__" + simpleName(((ArrayTypeName) typeName).componentType);
+    } else if (typeName instanceof WildcardTypeName) {
+      WildcardTypeName wildcardTypeName = (WildcardTypeName) typeName;
+      return "wildcard__"
+          + simpleName(ImmutableList.<TypeName>builder().addAll(wildcardTypeName.lowerBounds)
+          .addAll(wildcardTypeName.upperBounds)
+          .build());
+    } else if (typeName instanceof TypeVariableName) {
+      TypeVariableName variable = (TypeVariableName) typeName;
+      return variable.name
+          + (variable.bounds.isEmpty() ? "" : "__")
+          + simpleName(variable.bounds);
+    } else {
+      return typeName.toString();
+    }
+  }
+
+  private static String simpleName(List<TypeName> typeNames) {
+    return Joiner.on("_").join(typeNames.stream()
+            .map(AutoValueGsonExtension::simpleName)
+            .collect(Collectors.toList()));
   }
 
   private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties) {
@@ -330,7 +375,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private String upperCamelizeHumanName(Property prop) {
-    return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, prop.humanName);
+    return LOWER_CAMEL.to(UPPER_CAMEL, prop.humanName);
   }
 
   MethodSpec generateConstructor(List<Property> properties, Map<String, TypeName> types) {
@@ -404,17 +449,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (defaultSetters) {
       defaultValueFields = createDefaultValueFields(properties);
     }
-    ImmutableMap<Property, FieldSpec> adapters = createFields(properties);
+    ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
+    Set<FieldSpec> initializedFields = Sets.newHashSet();
     for (Property prop : properties) {
       if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
         // Property should be ignored for deserialization but is not marked as nullable - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
-      if (!prop.shouldDeserialize() && !prop.shouldSerialize()) {
+      FieldSpec field = adapters.get(prop.type);
+      if ((!prop.shouldDeserialize() && !prop.shouldSerialize()) || initializedFields.contains(field)) {
         continue;
       }
-      FieldSpec field = adapters.get(prop);
       if (prop.typeAdapter != null) {
         if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
           if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
@@ -434,6 +480,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
         constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
       }
+      initializedFields.add(field);
     }
 
     ClassName gsonTypeAdapterName = className.nestedClass("GsonTypeAdapter");
@@ -444,7 +491,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
-        .addMethod(createWriteMethod(autoValueTypeName, adapters))
+        .addMethod(createWriteMethod(autoValueTypeName, properties, adapters))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters));
 
     if (defaultSetters) {
@@ -474,7 +521,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
-                                      ImmutableMap<Property, FieldSpec> adapters) {
+                                      List<Property> properties,
+                                      ImmutableMap<TypeName, FieldSpec> adapters) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
@@ -490,13 +538,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     writeMethod.endControlFlow();
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
-    for (Map.Entry<Property, FieldSpec> entry : adapters.entrySet()) {
-      Property prop = entry.getKey();
+    for (Property prop : properties) {
       if (!prop.shouldSerialize()) {
         continue;
       }
-      FieldSpec field = entry.getValue();
-
+      FieldSpec field = adapters.get(prop.type);
       writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
     }
@@ -508,7 +554,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public MethodSpec createReadMethod(ClassName className,
                                      TypeName autoValueClassName,
                                      List<Property> properties,
-                                     ImmutableMap<Property, FieldSpec> adapters) {
+                                     ImmutableMap<TypeName, FieldSpec> adapters) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
         .addAnnotation(Override.class)
@@ -568,7 +614,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.addCode("case $S:\n", alternate);
       }
       readMethod.beginControlFlow("case $S:", prop.serializedName());
-      readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop), jsonReader);
+      readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop.type), jsonReader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }

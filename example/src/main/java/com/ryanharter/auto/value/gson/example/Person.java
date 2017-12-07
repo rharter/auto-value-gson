@@ -17,6 +17,7 @@ public abstract class Person {
     @GsonTypeAdapter(BirthdateAdapter.class)
     public abstract Date birthdate();
 
+    @Nullable
     public abstract Address address();
 
     public static Builder builder() {
@@ -41,4 +42,6 @@ public abstract class Person {
 
         public abstract Person build();
     }
+
+    public @interface Nullable {}
 }
