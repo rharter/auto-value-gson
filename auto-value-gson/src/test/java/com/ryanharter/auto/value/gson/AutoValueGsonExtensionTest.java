@@ -1347,7 +1347,7 @@ public class AutoValueGsonExtensionTest {
         + "        return null;\n"
         + "      }\n"
         + "      jsonReader.beginObject();\n"
-        + "      char c = '?';\n"
+        + "      char c = '\\u0000';\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
         + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
