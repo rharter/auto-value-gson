@@ -198,6 +198,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
         ClassName.get(TypeAdapter.class), typeName);
+    boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     TypeName returnedTypeAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
@@ -215,33 +216,36 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
-    if (returnedTypeAdapter == null) {
+    if (returnedTypeAdapter == null && !generateExternalAdapter) {
       return false;
     }
 
-    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
-    Messager messager = context.processingEnvironment().getMessager();
-    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
-      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
-      TypeName argument = paramReturnType.typeArguments.get(0);
+    if (returnedTypeAdapter != null) {
+      // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
+      Messager messager = context.processingEnvironment().getMessager();
+      if (returnedTypeAdapter instanceof ParameterizedTypeName) {
+        ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
+        TypeName argument = paramReturnType.typeArguments.get(0);
 
-      // If the original type uses generics, user's don't have to nest the generic type args
-      if (typeName instanceof ParameterizedTypeName) {
-        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
-        if (pTypeName.rawType.equals(argument)) {
-          return true;
+        // If the original type uses generics, user's don't have to nest the generic type args
+        if (typeName instanceof ParameterizedTypeName) {
+          ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+          if (pTypeName.rawType.equals(argument)) {
+            return true;
+          }
+        } else {
+          messager.printMessage(Diagnostic.Kind.WARNING,
+              String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+                  + "Skipping GsonTypeAdapter generation.", argument, type));
         }
       } else {
-        messager.printMessage(Diagnostic.Kind.WARNING,
-            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-                + "Skipping GsonTypeAdapter generation.", argument, type));
+        messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+            + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
       }
+      return false;
     } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
-          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+      return true;
     }
-
-    return false;
   }
 
   @Override
