@@ -7,8 +7,7 @@ import com.google.gson.reflect.TypeToken;
 import java.util.List;
 import java.util.Map;
 
-@AutoValue
-public abstract class WebResponse<T> {
+@AutoValue public abstract class WebResponse<T> {
   public abstract int status();
   public abstract T data();
   public abstract List<T> dataList();
