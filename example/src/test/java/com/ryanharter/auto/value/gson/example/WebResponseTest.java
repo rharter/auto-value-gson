@@ -49,9 +49,10 @@ public class WebResponseTest {
         "\"dataMap\":{\"key\":[\"string\"]}}";
     Gson gson = new GsonBuilder()
         .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+        .registerTypeAdapterFactory(SampleAdapterFactory.create())
         .create();
-    Type responseType = new TypeToken<WebResponse<String>>(){}.getType();
-    WebResponse<String> response = gson.fromJson(json, responseType);
+    Type responseType = new TypeToken<WebResponseNoStatic<String>>(){}.getType();
+    WebResponseNoStatic<String> response = gson.fromJson(json, responseType);
 
     assertEquals("string", response.data());
     assertEquals("string", response.dataList().get(0));
@@ -65,9 +66,10 @@ public class WebResponseTest {
         "\"dataMap\":{\"key\":[{\"firstname\":\"Ryan\",\"lastname\":\"Harter\"}]}}";
     Gson gson = new GsonBuilder()
         .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+        .registerTypeAdapterFactory(SampleAdapterFactory.create())
         .create();
-    Type responseType = new TypeToken<WebResponse<User>>(){}.getType();
-    WebResponse<User> response = gson.fromJson(json, responseType);
+    Type responseType = new TypeToken<WebResponseNoStatic<User>>(){}.getType();
+    WebResponseNoStatic<User> response = gson.fromJson(json, responseType);
 
     User expected = User.with("Ryan", "Harter");
     assertEquals(expected, response.data());
