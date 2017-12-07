@@ -83,12 +83,12 @@ public @interface GenerateTypeAdapter {
           // Try the gson constructor
           //noinspection unchecked
           adapterCtor =
-              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(cls, Gson.class);
+              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class);
         } catch (NoSuchMethodException e) {
           // Try the gson + typetoken constructor
           //noinspection unchecked
           adapterCtor =
-              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(cls, Gson.class,
+              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class,
                   TypeToken.class);
         }
       } catch (ClassNotFoundException e) {
