@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -137,16 +136,14 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .returns(result)
         .addStatement("Class<$T> rawType = (Class<$T>) $N.getRawType()", t, t, type);
 
-    List<Map.Entry<Element, Optional<ExecutableElement>>> properties = elements.stream()
-        .collect(Collectors.toMap(e -> e, this::getTypeAdapterMethod))
-        .entrySet()
-        .stream()
-        .filter(entry -> entry.getValue().isPresent())
+    List<Pair<Element, ExecutableElement>> properties = elements.stream()
+        .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
+        .filter(entry -> entry.second != null)
         .collect(Collectors.toList());
 
     for (int i = 0, elementsSize = properties.size(); i < elementsSize; i++) {
-      Map.Entry<Element, Optional<ExecutableElement>> entry = properties.get(i);
-      Element element = entry.getKey();
+      Pair<Element, ExecutableElement> pair = properties.get(i);
+      Element element = pair.first;
       TypeName elementType = rawType(element);
       if (i == 0) {
         create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", elementType);
@@ -154,7 +151,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementType);
       }
       //noinspection ConstantConditions We've filtered absent ones
-      ExecutableElement typeAdapterMethod = entry.getValue().get();
+      ExecutableElement typeAdapterMethod = pair.second;
       List<? extends VariableElement> params = typeAdapterMethod.getParameters();
       if (params != null && params.size() == 1) {
         create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, elementType, gson);
@@ -178,7 +175,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     return type;
   }
 
-  private Optional<ExecutableElement> getTypeAdapterMethod(Element element) {
+  private ExecutableElement getTypeAdapterMethod(Element element) {
     TypeName type = TypeName.get(element.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName
         .get(ClassName.get(TypeAdapter.class), type);
@@ -186,7 +183,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeName returnType = TypeName.get(method.getReturnType());
         if (returnType.equals(typeAdapterType)) {
-          return Optional.of(method);
+          return method;
         } else if (returnType instanceof ParameterizedTypeName) {
           ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnType;
           TypeName argument = paramReturnType.typeArguments.get(0);
@@ -195,13 +192,13 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
           if (type instanceof ParameterizedTypeName) {
             ParameterizedTypeName pTypeName = (ParameterizedTypeName) type;
             if (pTypeName.rawType.equals(argument)) {
-              return Optional.of(method);
+              return method;
             }
           }
         }
       }
     }
-    return Optional.empty();
+    return null;
   }
 
   private void error(Element element, String message, Object... args) {
@@ -302,6 +299,20 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
     @Override public Set<ExecutableElement> abstractMethods() {
       return null;
+    }
+  }
+
+  private static class Pair<F, S> {
+    private final F first;
+    private final S second;
+
+    private Pair(F first, S second) {
+      this.first = first;
+      this.second = second;
+    }
+
+    static <F, S> Pair<F, S> create(F first, S second) {
+      return new Pair<>(first, second);
     }
   }
 }
