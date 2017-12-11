@@ -116,7 +116,7 @@ deserialized.
     @AutoValueGsonBuild // required if there are multiple build methods to indicate which to use
     public Foo build() {
       Foo foo = autoBuild();
-      if (bar < 0) {
+      if (foo.bar() < 0) {
         throw new IllegalArgumentException("bar must be greater than 0");
       }
       return foo;
