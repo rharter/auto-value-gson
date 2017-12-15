@@ -7,6 +7,7 @@ dependencies {
     apt 'com.google.auto.value:auto-value:1.4.1'
     apt project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
+    compile project(':auto-value-gson-annotations')
 
     testCompile 'junit:junit:4.12'
     testCompileOnly 'com.google.auto.value:auto-value:1.5.2'

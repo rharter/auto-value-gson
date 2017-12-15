@@ -198,6 +198,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
         ClassName.get(TypeAdapter.class), typeName);
+    boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     TypeName returnedTypeAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
@@ -215,33 +216,36 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
 
-    if (returnedTypeAdapter == null) {
+    if (returnedTypeAdapter == null && !generateExternalAdapter) {
       return false;
     }
 
-    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
-    Messager messager = context.processingEnvironment().getMessager();
-    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
-      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
-      TypeName argument = paramReturnType.typeArguments.get(0);
+    if (returnedTypeAdapter != null) {
+      // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
+      Messager messager = context.processingEnvironment().getMessager();
+      if (returnedTypeAdapter instanceof ParameterizedTypeName) {
+        ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
+        TypeName argument = paramReturnType.typeArguments.get(0);
 
-      // If the original type uses generics, user's don't have to nest the generic type args
-      if (typeName instanceof ParameterizedTypeName) {
-        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
-        if (pTypeName.rawType.equals(argument)) {
-          return true;
+        // If the original type uses generics, user's don't have to nest the generic type args
+        if (typeName instanceof ParameterizedTypeName) {
+          ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+          if (pTypeName.rawType.equals(argument)) {
+            return true;
+          }
+        } else {
+          messager.printMessage(Diagnostic.Kind.WARNING,
+              String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+                  + "Skipping GsonTypeAdapter generation.", argument, type));
         }
       } else {
-        messager.printMessage(Diagnostic.Kind.WARNING,
-            String.format("Found public static method returning TypeAdapter<%s> on %s class. "
-                + "Skipping GsonTypeAdapter generation.", argument, type));
+        messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+            + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
       }
+      return false;
     } else {
-      messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
-          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+      return true;
     }
-
-    return false;
   }
 
   @Override
@@ -254,6 +258,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     boolean generatedAnnotationAvailable = context.processingEnvironment()
         .getElementUtils()
         .getTypeElement("javax.annotation.Generated") != null;
+    TypeElement type = context.autoValueClass();
+    boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     List<Property> properties = readProperties(context.properties());
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
@@ -271,28 +277,53 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
     }
 
-    TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, properties, params);
+    ClassName adapterClassName = generateExternalAdapter
+        ? ClassName.get(context.packageName(), autoValueClass.simpleName() + "_GsonTypeAdapter")
+        : classNameClass.nestedClass("GsonTypeAdapter");
+    TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, adapterClassName, properties, params);
 
-    TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
-        .superclass(superclasstype)
-        .addType(typeAdapter)
-        .addMethod(generateConstructor(properties, types));
-
-    if (generatedAnnotationAvailable) {
-      subclass.addAnnotation(GENERATED);
-    }
-
-    if (!typeParams.isEmpty()) {
-      subclass.addTypeVariables(params);
-    }
-
-    if (isFinal) {
-      subclass.addModifiers(FINAL);
+    if (generateExternalAdapter) {
+      try {
+        TypeSpec.Builder builder = typeAdapter.toBuilder();
+        if (generatedAnnotationAvailable) {
+          builder.addAnnotation(GENERATED);
+        }
+        JavaFile.builder(context.packageName(), builder.build())
+            .skipJavaLangImports(true)
+            .build()
+            .writeTo(context.processingEnvironment().getFiler());
+      } catch (IOException e) {
+        context.processingEnvironment().getMessager()
+            .printMessage(Diagnostic.Kind.ERROR,
+                String.format(
+                    "Failed to write external TypeAdapter for element \"%s\" with reason \"%s\"",
+                    type,
+                    e.getMessage()));
+      }
+      return null;
     } else {
-      subclass.addModifiers(ABSTRACT);
-    }
+      TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
+          .superclass(superclasstype)
+          .addType(typeAdapter.toBuilder()
+              .addModifiers(STATIC)
+              .build())
+          .addMethod(generateConstructor(properties, types));
 
-    return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
+      if (generatedAnnotationAvailable) {
+        subclass.addAnnotation(GENERATED);
+      }
+
+      if (!typeParams.isEmpty()) {
+        subclass.addTypeVariables(params);
+      }
+
+      if (isFinal) {
+        subclass.addModifiers(FINAL);
+      } else {
+        subclass.addModifiers(ABSTRACT);
+      }
+      return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
+    }
   }
 
   public List<Property> readProperties(Map<String, ExecutableElement> properties) {
@@ -414,7 +445,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  public TypeSpec createTypeAdapter(Context context, ClassName className, ClassName autoValueClassName, List<Property> properties, List<TypeVariableName> typeParams) {
+  public TypeSpec createTypeAdapter(Context context,
+      ClassName className,
+      ClassName autoValueClassName,
+      ClassName gsonTypeAdapterName,
+      List<Property> properties,
+      List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     TypeName autoValueTypeName = autoValueClassName;
     if (!typeParams.isEmpty()) {
@@ -483,11 +519,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       initializedFields.add(field);
     }
 
-    ClassName gsonTypeAdapterName = className.nestedClass("GsonTypeAdapter");
-
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
-        .addModifiers(PUBLIC, STATIC, FINAL)
+        .addModifiers(PUBLIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
         .addMethod(constructor.build())
