@@ -217,8 +217,8 @@ Proguard rules for obfuscation:
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```groovy
-annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.6.0'
-compile 'com.ryanharter.auto.value:auto-value-gson-annotations:0.6.0'
+annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.7.0'
+compile 'com.ryanharter.auto.value:auto-value-gson-annotations:0.7.0'
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).

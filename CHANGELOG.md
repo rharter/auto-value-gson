@@ -1,5 +1,11 @@
 # Change Log
 
+## Version 0.7.0 (2017-12-20)
+
+* Implement `@GeneratedTypeAdapter` support (#160)
+* Generated code optimizations (#156)
+* Make annotations java 7 compatible (#157)
+
 ## Version 0.6.0 (2017-10-03)
 
 * Standalone annotations artifact (#118) (#126)
