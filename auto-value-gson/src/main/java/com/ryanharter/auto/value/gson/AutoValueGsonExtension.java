@@ -67,6 +67,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.Modifier.VOLATILE;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
@@ -349,7 +350,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!seenTypes.contains(property.type)) {
         fields.put(property.type,
                 FieldSpec.builder(adp,
-                    nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, FINAL)
+                                  nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, VOLATILE)
                     .build());
         seenTypes.add(property.type);
       }
@@ -471,7 +472,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       constructor.addParameter(typeAdapter);
 
       constructor.addStatement("$1T type = ($1T) $2N.getType()", ParameterizedType.class, typeAdapter);
-      constructor.addStatement("$T[] typeArgs = type.getActualTypeArguments()", Type.class);
+      constructor.addStatement("typeArgs = type.getActualTypeArguments()", Type.class);
     }
 
     ProcessingEnvironment processingEnvironment = context.processingEnvironment();
@@ -481,52 +482,37 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .asType();
     Types typeUtils = processingEnvironment.getTypeUtils();
 
+    ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
     Map<Property, FieldSpec> defaultValueFields = Collections.emptyMap();
     if (defaultSetters) {
       defaultValueFields = createDefaultValueFields(properties);
     }
-    ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
-    Set<FieldSpec> initializedFields = Sets.newHashSet();
     for (Property prop : properties) {
       if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
         // Property should be ignored for deserialization but is not marked as nullable - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
-      FieldSpec field = adapters.get(prop.type);
-      if ((!prop.shouldDeserialize() && !prop.shouldSerialize()) || initializedFields.contains(field)) {
-        continue;
-      }
-      if (prop.typeAdapter != null) {
-        if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
-          if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-            constructor.addStatement("this.$N = ($T) new $T().create($N, $L)", field, field.type, TypeName.get(prop.typeAdapter),
-                    gsonParam, makeParameterizedType(prop.type, typeParams));
-          } else {
-            constructor.addStatement("this.$N = new $T().create($N, $T.get($T.class))", field, TypeName.get(prop.typeAdapter),
-                    gsonParam, TypeToken.class, prop.type);
-          }
-        } else {
-          constructor.addStatement("this.$N = new $T()", field, TypeName.get(prop.typeAdapter));
-        }
-      } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-        constructor.addStatement("this.$N = ($T) $N.getAdapter($L)", field, field.type, gsonParam,
-            makeParameterizedType(prop.type, typeParams));
-      } else {
-        TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
-        constructor.addStatement("this.$N = $N.getAdapter($T.class)", field, gsonParam, type);
-      }
-      initializedFields.add(field);
     }
 
+    constructor.addStatement("this.gson = gson");
+    
+    ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
+        .addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
         .addMethod(constructor.build())
-        .addMethod(createWriteMethod(autoValueTypeName, properties, adapters))
-        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters));
+        .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
+                                     jsonAdapter, typeAdapterFactory, typeUtils, typeParams))
+        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
+                                    jsonAdapter, typeAdapterFactory, typeUtils, typeParams));
+
+    if (!typeParams.isEmpty()) {
+      classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
+    }
 
     if (defaultSetters) {
         classBuilder.addMethods(createDefaultMethods(gsonTypeAdapterName, properties))
@@ -554,9 +540,61 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return methodSpecs;
   }
 
+  private static String typeAdapterGetter(Property prop,
+                                          ClassName jsonAdapter,
+                                          TypeMirror typeAdapterFactory,
+                                          Types typeUtils,
+                                          List<TypeVariableName> typeParams) {
+    TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+    ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
+    CodeBlock.Builder codeBuilder = CodeBlock.builder();      
+
+    if (prop.typeAdapter != null) {
+      if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
+        if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+          codeBuilder.add("(($T) new $T().create(gson, $L))", adp,
+                          TypeName.get(prop.typeAdapter), makeParameterizedType(prop.type, typeParams));
+        } else {
+          codeBuilder.add("(new $T().create(gson, $T.get($T.class)))",
+                          TypeName.get(prop.typeAdapter), TypeToken.class, prop.type);
+        }
+      } else {
+        codeBuilder.add("(new $T())", TypeName.get(prop.typeAdapter));
+      }
+    } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+      codeBuilder.add("(($T) gson.getAdapter($L))", adp, makeParameterizedType(prop.type, typeParams));
+    } else {
+      codeBuilder.add("(gson.getAdapter($T.class))", type);
+    }
+
+    return codeBuilder.build().toString();
+      
+  }
+
+  private void addAdapterFieldUse(MethodSpec.Builder writeMethod,
+                                  Property prop,
+                                  ImmutableMap<TypeName, FieldSpec> adapters,
+                                  ClassName jsonAdapter,
+                                  TypeMirror typeAdapterFactory,
+                                  Types typeUtils,
+                                  List<TypeVariableName> typeParams,
+                                  ParameterSpec jsonWriter,
+                                  ParameterSpec annotatedParam) {
+    String getter = typeAdapterGetter(prop, jsonAdapter, typeAdapterFactory, typeUtils, typeParams);
+    FieldSpec adapterField = adapters.get(prop.type);
+    writeMethod.beginControlFlow("if ($N == null)", adapterField);
+    writeMethod.addStatement("this.$N = $N", adapterField, getter);
+    writeMethod.endControlFlow();
+    writeMethod.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
+  }
+
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
                                       List<Property> properties,
-                                      ImmutableMap<TypeName, FieldSpec> adapters) {
+                                      ImmutableMap<TypeName, FieldSpec> adapters,
+                                      ClassName jsonAdapter,
+                                      TypeMirror typeAdapterFactory,
+                                      Types typeUtils,
+                                      List<TypeVariableName> typeParams) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
@@ -576,9 +614,21 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!prop.shouldSerialize()) {
         continue;
       }
-      FieldSpec field = adapters.get(prop.type);
       writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-      writeMethod.addStatement("$N.write($N, $N.$N())", field, jsonWriter, annotatedParam, prop.methodName);
+      // for adapters handling non-primitive values, initialize the
+      // adapter only when the value is actually present (non-null),
+      // otherwise use a generic method of writing the null value
+      if (!prop.type.isPrimitive()) {
+          writeMethod.beginControlFlow("if ($N.$N() == null)", annotatedParam, prop.methodName);
+          writeMethod.addStatement("$N.nullValue()", jsonWriter);
+          writeMethod.nextControlFlow("else");
+          addAdapterFieldUse(writeMethod, prop, adapters, jsonAdapter, typeAdapterFactory,
+                             typeUtils, typeParams, jsonWriter, annotatedParam);
+          writeMethod.endControlFlow();
+      } else {
+        addAdapterFieldUse(writeMethod, prop, adapters, jsonAdapter, typeAdapterFactory,
+                           typeUtils, typeParams, jsonWriter, annotatedParam);
+      }
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -588,7 +638,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public MethodSpec createReadMethod(ClassName className,
                                      TypeName autoValueClassName,
                                      List<Property> properties,
-                                     ImmutableMap<TypeName, FieldSpec> adapters) {
+                                     ImmutableMap<TypeName, FieldSpec> adapters,
+                                     ClassName jsonAdapter,
+                                     TypeMirror typeAdapterFactory,
+                                     Types typeUtils,
+                                     List<TypeVariableName> typeParams) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
         .addAnnotation(Override.class)
@@ -648,7 +702,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.addCode("case $S:\n", alternate);
       }
       readMethod.beginControlFlow("case $S:", prop.serializedName());
-      readMethod.addStatement("$N = $N.read($N)", field, adapters.get(prop.type), jsonReader);
+      String getter = typeAdapterGetter(prop, jsonAdapter, typeAdapterFactory, typeUtils, typeParams);
+      FieldSpec adapterField = adapters.get(prop.type);
+      readMethod.beginControlFlow("if ($N == null)", adapterField);
+      readMethod.addStatement("this.$N = $N", adapterField, getter);
+      readMethod.endControlFlow();
+      readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
@@ -767,7 +826,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return valueString;
   }
 
-  private CodeBlock makeParameterizedType(TypeName typeName, List<TypeVariableName> typeParams) {
+  private static CodeBlock makeParameterizedType(TypeName typeName, List<TypeVariableName> typeParams) {
     CodeBlock.Builder block = CodeBlock.builder();
     if (typeName instanceof TypeVariableName) {
       block.add("$T.get(typeArgs[$L])", TypeToken.class, typeParams.indexOf(typeName));
