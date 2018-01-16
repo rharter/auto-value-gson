@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static java.lang.annotation.ElementType.TYPE;
@@ -28,7 +28,8 @@ public @interface GenerateTypeAdapter {
 
   TypeAdapterFactory FACTORY = new TypeAdapterFactory() {
     private final Map<Class<?>, Constructor<? extends TypeAdapter>> adapters =
-        Collections.synchronizedMap(new HashMap<Class<?>, Constructor<? extends TypeAdapter>>());
+        Collections.synchronizedMap(
+            new LinkedHashMap<Class<?>, Constructor<? extends TypeAdapter>>());
 
     @SuppressWarnings("unchecked")
     @Override
