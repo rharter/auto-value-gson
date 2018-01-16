@@ -43,7 +43,7 @@ public @interface GenerateTypeAdapter {
       }
       //noinspection TryWithIdenticalCatches Resolves to API 19+ only type.
       try {
-        if (constructor.getParameterCount() == 1) {
+        if (constructor.getParameterTypes().length == 1) {
           return constructor.newInstance(gson);
         } else {
           return constructor.newInstance(gson, type);
