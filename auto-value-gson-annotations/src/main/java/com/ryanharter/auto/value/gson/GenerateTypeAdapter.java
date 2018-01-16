@@ -9,8 +9,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -27,7 +28,7 @@ public @interface GenerateTypeAdapter {
 
   TypeAdapterFactory FACTORY = new TypeAdapterFactory() {
     private final Map<Class<?>, Constructor<? extends TypeAdapter>> adapters =
-        new ConcurrentHashMap<>();
+        Collections.synchronizedMap(new HashMap<>());
 
     @SuppressWarnings("unchecked")
     @Override
