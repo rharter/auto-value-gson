@@ -28,7 +28,7 @@ public @interface GenerateTypeAdapter {
 
   TypeAdapterFactory FACTORY = new TypeAdapterFactory() {
     private final Map<Class<?>, Constructor<? extends TypeAdapter>> adapters =
-        Collections.synchronizedMap(new HashMap<>());
+        Collections.synchronizedMap(new HashMap<Class<?>, Constructor<? extends TypeAdapter>>());
 
     @SuppressWarnings("unchecked")
     @Override
