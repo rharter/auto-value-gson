@@ -583,7 +583,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     String getter = typeAdapterGetter(prop, jsonAdapter, typeAdapterFactory, typeUtils, typeParams);
     FieldSpec adapterField = adapters.get(prop.type);
     writeMethod.beginControlFlow("if ($N == null)", adapterField);
-    writeMethod.addStatement("this.$N = $N", adapterField, getter);
+    writeMethod.addStatement("$N = $N", adapterField, getter);
     writeMethod.endControlFlow();
     writeMethod.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
   }
@@ -705,7 +705,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       String getter = typeAdapterGetter(prop, jsonAdapter, typeAdapterFactory, typeUtils, typeParams);
       FieldSpec adapterField = adapters.get(prop.type);
       readMethod.beginControlFlow("if ($N == null)", adapterField);
-      readMethod.addStatement("this.$N = $N", adapterField, getter);
+      readMethod.addStatement("$N = $N", adapterField, getter);
       readMethod.endControlFlow();
       readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
       readMethod.addStatement("break");
