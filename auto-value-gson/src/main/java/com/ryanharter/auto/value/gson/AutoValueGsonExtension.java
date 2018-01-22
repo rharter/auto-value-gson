@@ -552,19 +552,19 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (prop.typeAdapter != null) {
       if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
         if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-          codeBuilder.add("(($T) new $T().create(gson, $L))", adp,
+          codeBuilder.add("($T) new $T().create(gson, $L)", adp,
                           TypeName.get(prop.typeAdapter), makeParameterizedType(prop.type, typeParams));
         } else {
-          codeBuilder.add("(new $T().create(gson, $T.get($T.class)))",
+          codeBuilder.add("new $T().create(gson, $T.get($T.class))",
                           TypeName.get(prop.typeAdapter), TypeToken.class, prop.type);
         }
       } else {
-        codeBuilder.add("(new $T())", TypeName.get(prop.typeAdapter));
+        codeBuilder.add("new $T()", TypeName.get(prop.typeAdapter));
       }
     } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-      codeBuilder.add("(($T) gson.getAdapter($L))", adp, makeParameterizedType(prop.type, typeParams));
+      codeBuilder.add("($T) gson.getAdapter($L)", adp, makeParameterizedType(prop.type, typeParams));
     } else {
-      codeBuilder.add("(gson.getAdapter($T.class))", type);
+      codeBuilder.add("gson.getAdapter($T.class)", type);
     }
 
     return codeBuilder.build().toString();
