@@ -350,8 +350,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!seenTypes.contains(property.type)) {
         fields.put(property.type,
                 FieldSpec.builder(adp,
-                                  nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, VOLATILE)
-                    .build());
+                        nameAllocator.newName(simpleName(property.type)) + "_adapter", PRIVATE, VOLATILE)
+                        .build());
         seenTypes.add(property.type);
       }
     }
@@ -506,9 +506,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
-                                     jsonAdapter, typeAdapterFactory, typeUtils, typeParams))
+                jsonAdapter, typeAdapterFactory, typeUtils, typeParams))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
-                                    jsonAdapter, typeAdapterFactory, typeUtils, typeParams));
+                jsonAdapter, typeAdapterFactory, typeUtils, typeParams));
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
