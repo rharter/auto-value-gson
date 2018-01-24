@@ -631,13 +631,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       } else {
         block.add("{\n");
         block.indent();
-        //        writeMethod.beginControlFlow("");
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter,
             typeAdapterFactory, typeUtils, typeParams, jsonWriter, annotatedParam);
         block.unindent();
         block.add("}\n");
         writeMethod.addCode(block.build());
-        //        writeMethod.endControlFlow();
       }
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
