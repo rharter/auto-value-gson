@@ -134,7 +134,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
             .build())
         .addParameters(ImmutableSet.of(gson, type))
         .returns(result)
-        .addStatement("Class<$T> rawType = (Class<$T>) $N.getRawType()", t, t, type);
+        .addStatement("Class<?> rawType = $N.getRawType()", type);
 
     List<Pair<Element, ExecutableElement>> properties = elements.stream()
         .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
