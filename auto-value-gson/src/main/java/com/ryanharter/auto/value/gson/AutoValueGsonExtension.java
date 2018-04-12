@@ -386,9 +386,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private static String simpleName(List<TypeName> typeNames) {
-    return Joiner.on("_").join(typeNames.stream()
-            .map(AutoValueGsonExtension::simpleName)
-            .collect(Collectors.toList()));
+    List<String> names = new ArrayList<>(typeNames.size());
+    for (TypeName name : typeNames) {
+      names.add(simpleName(name));
+    }
+
+    return Joiner.on("_").join(names);
   }
 
   private Map<Property, FieldSpec> createDefaultValueFields(List<Property> properties) {
@@ -496,7 +499,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     constructor.addStatement("this.gson = gson");
-    
+
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
@@ -553,7 +556,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (prop.typeAdapter != null) {
       if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
         if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-          codeBuilder.addStatement("this.$N = $N = ($T) new $T().create(gson, $L)", adapterField, adapterField, 
+          codeBuilder.addStatement("this.$N = $N = ($T) new $T().create(gson, $L)", adapterField, adapterField,
               adp, TypeName.get(prop.typeAdapter), makeParameterizedType(prop.type, typeParams));
         } else {
           codeBuilder.addStatement("this.$N = $N = new $T().create(gson, $T.get($T.class))",
