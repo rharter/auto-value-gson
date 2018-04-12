@@ -18,6 +18,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -136,10 +137,14 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .returns(result)
         .addStatement("Class<?> rawType = $N.getRawType()", type);
 
-    List<Pair<Element, ExecutableElement>> properties = elements.stream()
-        .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
-        .filter(entry -> entry.second != null)
-        .collect(Collectors.toList());
+    List<Pair<Element, ExecutableElement>> properties = new ArrayList<>(elements.size());
+    for (Element el : elements) {
+      ExecutableElement ex = getTypeAdapterMethod(el);
+
+      if (ex != null) {
+        properties.add(Pair.create(el, ex));
+      }
+    }
 
     for (int i = 0, elementsSize = properties.size(); i < elementsSize; i++) {
       Pair<Element, ExecutableElement> pair = properties.get(i);
