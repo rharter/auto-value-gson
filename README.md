@@ -148,11 +148,11 @@ Types annotated with this can also be (de)serialized dynamically at runtime with
 implementation in the annotation called `FACTORY`. The type name and generated typeadapter class's name *must not be obfuscated*
 for this to work.
 
-When this annotation is used, there will be no intermediate AutoValue class generated (as opposed to the default logic,
+When this annotation is used, there will be no intermediate AutoValue class generated (as opposed to the default logic, 
 which generates an intermediate class and generates the `TypeAdapter` as a static inner class of it).
 
 `@GenerateTypeAdapter` is compatible with the factory approach above, just make your static method's implementation
-point to it. It can also be an alternative to it if you use the runtime factory, particularly if you
+point to it. It can also be an alternative to it if you use the runtime factory, particularly if you 
 have a multimodule project and are willing to accept a small amount of (heavily cached) reflection.
 
 The generated class will have the same parameters as if it were the inner class. If it's generic, its constructor
