@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -133,17 +134,24 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
             .build())
         .addParameters(ImmutableSet.of(gson, type))
         .returns(result)
-        .addStatement("Class<$T> rawType = (Class<$T>) $N.getRawType()", t, t, type);
+        .addStatement("Class<?> rawType = $N.getRawType()", type);
 
-    for (int i = 0, elementsSize = elements.size(); i < elementsSize; i++) {
-      Element element = elements.get(i);
+    List<Pair<Element, ExecutableElement>> properties = elements.stream()
+        .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
+        .filter(entry -> entry.second != null)
+        .collect(Collectors.toList());
+
+    for (int i = 0, elementsSize = properties.size(); i < elementsSize; i++) {
+      Pair<Element, ExecutableElement> pair = properties.get(i);
+      Element element = pair.first;
       TypeName elementType = rawType(element);
       if (i == 0) {
         create.beginControlFlow("if ($T.class.isAssignableFrom(rawType))", elementType);
       } else {
         create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementType);
       }
-      ExecutableElement typeAdapterMethod = getTypeAdapterMethod(element);
+      //noinspection ConstantConditions We've filtered absent ones
+      ExecutableElement typeAdapterMethod = pair.second;
       List<? extends VariableElement> params = typeAdapterMethod.getParameters();
       if (params != null && params.size() == 1) {
         create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, elementType, gson);
@@ -291,6 +299,20 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
     @Override public Set<ExecutableElement> abstractMethods() {
       return null;
+    }
+  }
+
+  private static class Pair<F, S> {
+    private final F first;
+    private final S second;
+
+    private Pair(F first, S second) {
+      this.first = first;
+      this.second = second;
+    }
+
+    static <F, S> Pair<F, S> create(F first, S second) {
+      return new Pair<>(first, second);
     }
   }
 }
