@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -496,7 +497,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     constructor.addStatement("this.gson = gson");
-    
+
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
@@ -553,7 +554,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (prop.typeAdapter != null) {
       if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
         if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-          codeBuilder.addStatement("this.$N = $N = ($T) new $T().create(gson, $L)", adapterField, adapterField, 
+          codeBuilder.addStatement("this.$N = $N = ($T) new $T().create(gson, $L)", adapterField, adapterField,
               adp, TypeName.get(prop.typeAdapter), makeParameterizedType(prop.type, typeParams));
         } else {
           codeBuilder.addStatement("this.$N = $N = new $T().create(gson, $T.get($T.class))",
@@ -599,6 +600,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
         .addAnnotation(Override.class)
+        .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+            .addMember("value", "\"unchecked\"")
+            .build())
         .addModifiers(PUBLIC)
         .addParameter(jsonWriter)
         .addParameter(annotatedParam)
@@ -654,6 +658,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
         .addAnnotation(Override.class)
+        .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+            .addMember("value", "\"unchecked\"")
+            .build())
         .addModifiers(PUBLIC)
         .returns(autoValueClassName)
         .addParameter(jsonReader)
