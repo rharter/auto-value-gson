@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 0.8.0 (2018-05-31)
+
+* Fixes an issue causing TypeAdapters to be generated non-deterministically.
+* Updates TypeAdapters to be lazily initialized.
+* Suppress unchecked for generated adapter read & write methods.
+* Fixes usage of Java 8 API in GenerateTypeAdapter (#166)
+* Switch from ConcurrentHashMap to Collections.synchronizedMap()
+
 ## Version 0.7.0 (2017-12-20)
 
 * Implement `@GeneratedTypeAdapter` support (#160)
