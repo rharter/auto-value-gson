@@ -81,6 +81,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       }
     }
 
+    elements.sort((o1, o2) -> {
+      final String o1Name = classNameOf((TypeElement)o1, ".");
+      final String o2Name = classNameOf((TypeElement)o2, ".");
+      return o1Name.compareTo(o2Name);
+    });
+
     if (!elements.isEmpty()) {
       Set<? extends Element> adaptorFactories = roundEnv.getElementsAnnotatedWith(GsonTypeAdapterFactory.class);
       for (Element element : adaptorFactories) {

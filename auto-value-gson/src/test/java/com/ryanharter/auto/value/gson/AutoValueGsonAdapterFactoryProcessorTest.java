@@ -68,12 +68,12 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "  @SuppressWarnings(\"unchecked\")\n"
         + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
         + "    Class<?> rawType = type.getRawType();\n"
-        + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
-        + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
-        + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
+        + "    if (Bar.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
         + "    } else if (Baz.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Baz.jsonAdapter(gson);\n"
+        + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
+        + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
         + "    } else {\n"
         + "      return null;\n"
         + "    }\n"
@@ -213,10 +213,10 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "  @SuppressWarnings(\"unchecked\")\n"
         + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
         + "    Class<?> rawType = type.getRawType();\n"
-        + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
-        + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
-        + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
+        + "    if (Bar.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
+        + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
+        + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
         + "    } else {\n"
         + "      return null;\n"
         + "    }\n"
@@ -280,10 +280,10 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
             + "  @SuppressWarnings(\"unchecked\")\n"
             + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
             + "    Class<?> rawType = type.getRawType();\n"
-            + "    if (Foo.class.isAssignableFrom(rawType)) {\n"
-            + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
-            + "    } else if (Bar.class.isAssignableFrom(rawType)) {\n"
+            + "    if (Bar.class.isAssignableFrom(rawType)) {\n"
             + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
+            + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
+            + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
             + "    } else {\n"
             + "      return null;\n"
             + "    }\n"
@@ -295,5 +295,77 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
             .compilesWithoutError()
             .and()
             .generatesSources(expected);
+  }
+
+  @Test public void generatesTypeAdapterFactory_shouldHaveOrder() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+      + "package test;\n"
+      + "import com.google.auto.value.AutoValue;\n"
+      + "import com.google.gson.TypeAdapter;\n"
+      + "import com.google.gson.Gson;\n"
+      + "@AutoValue public abstract class Foo {\n"
+      + "  public static TypeAdapter<Foo> typeAdapter(Gson gson) {\n"
+      + "    return null;\n"
+      + "  }\n"
+      + "  public abstract String getName();\n"
+      + "  public abstract boolean isAwesome();\n"
+      + "}");
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
+      + "package test;\n"
+      + "import com.google.auto.value.AutoValue;\n"
+      + "import com.google.gson.TypeAdapter;\n"
+      + "import com.google.gson.Gson;\n"
+      + "@AutoValue public abstract class Bar {\n"
+      + "  public static TypeAdapter<Bar> jsonAdapter(Gson gson) {\n"
+      + "    return null;\n"
+      + "  }\n"
+      + "  public abstract String getName();\n"
+      + "}");
+    JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+      + "package test;\n"
+      + "import com.google.gson.TypeAdapterFactory;\n"
+      + "import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;\n"
+      + "@GsonTypeAdapterFactory\n"
+      + "public abstract class MyAdapterFactory implements TypeAdapterFactory {\n"
+      + "  public static TypeAdapterFactory create() {\n"
+      + "    return new AutoValueGson_MyAdapterFactory();\n"
+      + "  }\n"
+      + "}");
+    JavaFileObject expected = JavaFileObjects.forSourceString("test.AutoValueGson_MyAdapterFactory", ""
+      + "package test;\n"
+      + "import com.google.gson.Gson;\n"
+      + "import com.google.gson.TypeAdapter;\n"
+      + "import com.google.gson.reflect.TypeToken;\n"
+      + "import java.lang.Override;\n"
+      + "import java.lang.SuppressWarnings;\n"
+      + "\n"
+      + "public final class AutoValueGson_MyAdapterFactory extends MyAdapterFactory {\n"
+      + "  @Override\n"
+      + "  @SuppressWarnings(\"unchecked\")\n"
+      + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
+      + "    Class<?> rawType = type.getRawType();\n"
+      + "    if (Bar.class.isAssignableFrom(rawType)) {\n"
+      + "      return (TypeAdapter<T>) Bar.jsonAdapter(gson);\n"
+      + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
+      + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
+      + "    } else {\n"
+      + "      return null;\n"
+      + "    }\n"
+      + "  }\n"
+      + "}");
+
+    assertAbout(javaSources())
+      .that(ImmutableSet.of(source1, source2, factorySource))
+      .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+      .compilesWithoutError()
+      .and()
+      .generatesSources(expected);
+
+    assertAbout(javaSources())
+      .that(ImmutableSet.of(source2, source1, factorySource))
+      .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+      .compilesWithoutError()
+      .and()
+      .generatesSources(expected);
   }
 }
