@@ -43,6 +43,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -88,6 +92,71 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           .addMember("comments", "$S", GENERATED_COMMENTS)
           .build();
 
+  public static class OptionalSpec {
+    public final TypeName wrappedType;
+    public final TypeName optionalRawType;
+    public final String orDefaultMethod;
+    public final String emptyMethod;
+    public final String ofNullableMethod;
+    public final boolean wrapsPrimitive;
+
+    public OptionalSpec(TypeName wrappedType, TypeName optionalRawType, String orDefaultMethod, String emptyMethod, String ofNullableMethod, boolean wrapsPrimitive) {
+      this.wrappedType = wrappedType;
+      this.optionalRawType = optionalRawType;
+      this.orDefaultMethod = orDefaultMethod;
+      this.emptyMethod = emptyMethod;
+      this.ofNullableMethod = ofNullableMethod;
+      this.wrapsPrimitive = wrapsPrimitive;
+    }
+
+    private static final TypeName GUAVA_OPTIONAL = TypeName.get(com.google.common.base.Optional.class);
+    private static final TypeName JAVA_OPTIONAL = TypeName.get(Optional.class);
+    private static final TypeName JAVA_OPTIONAL_INT = TypeName.get(OptionalInt.class);
+    private static final TypeName JAVA_OPTIONAL_LONG = TypeName.get(OptionalLong.class);
+    private static final TypeName JAVA_OPTIONAL_DOUBLE = TypeName.get(OptionalDouble.class);
+
+    private static OptionalSpec fromJava(TypeName wrappedType) {
+      return new OptionalSpec(wrappedType, JAVA_OPTIONAL, "orElse(null)", "empty()", "ofNullable", false);
+    }
+
+    private static OptionalSpec fromGuava(TypeName wrappedType) {
+      return new OptionalSpec(wrappedType, GUAVA_OPTIONAL, "orNull()", "absent()", "fromNullable", false);
+    }
+
+    private static OptionalSpec fromPrimitive(TypeName wrappedType, TypeName optionalRawType, String orDefaultMethod) {
+      return new OptionalSpec(wrappedType, optionalRawType, orDefaultMethod, "empty()", "of", true);
+    }
+
+    private static final Optional<OptionalSpec> INTEGER = Optional.of(fromPrimitive(TypeName.get(Integer.class), JAVA_OPTIONAL_INT, "orElse(0)"));
+    private static final Optional<OptionalSpec> LONG = Optional.of(fromPrimitive(TypeName.get(Long.class), JAVA_OPTIONAL_LONG, "orElse(0L)"));
+    private static final Optional<OptionalSpec> DOUBLE = Optional.of(fromPrimitive(TypeName.get(Double.class), JAVA_OPTIONAL_DOUBLE, "orElse(0d)"));
+
+    public static Optional<OptionalSpec> fromPropertyType(TypeName typeName) {
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName parameterized = (ParameterizedTypeName) typeName;
+        if (parameterized.typeArguments.size() == 1) {
+          final TypeName wrappedType = parameterized.typeArguments.get(0);
+          if (parameterized.rawType.equals(JAVA_OPTIONAL)) {
+            return Optional.of(fromJava(wrappedType));
+          }
+          if (parameterized.rawType.equals(GUAVA_OPTIONAL)) {
+            return Optional.of(fromGuava(wrappedType));
+          }
+        }
+      }
+      if (JAVA_OPTIONAL_INT.equals(typeName)) {
+        return INTEGER;
+      }
+      if (JAVA_OPTIONAL_LONG.equals(typeName)) {
+        return LONG;
+      }
+      if (JAVA_OPTIONAL_DOUBLE.equals(typeName)) {
+        return DOUBLE;
+      }
+      return Optional.empty();
+    }
+  }
+
   public static class Property {
     final String methodName;
     final String humanName;
@@ -96,6 +165,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final ImmutableSet<String> annotations;
     final TypeMirror typeAdapter;
     final boolean nullable;
+    final Optional<OptionalSpec> optionalSpec;
 
     public Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -105,6 +175,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
       nullable = nullableAnnotation() != null;
+      optionalSpec = OptionalSpec.fromPropertyType(type);
 
       typeAdapter = getAnnotationValue(element, GsonTypeAdapter.class);
     }
@@ -346,7 +417,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!property.shouldDeserialize() && !property.shouldSerialize()) {
         continue;
       }
-      TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
+      TypeName type = property.type;
+      if (type.isPrimitive()) {
+        type = type.box();
+      } else if (property.optionalSpec.isPresent()) {
+        type = property.optionalSpec.get().wrappedType;
+      }
       ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
       if (!seenTypes.contains(property.type)) {
         fields.put(property.type,
@@ -489,8 +565,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       defaultValueFields = createDefaultValueFields(properties);
     }
     for (Property prop : properties) {
-      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
-        // Property should be ignored for deserialization but is not marked as nullable - we require a default value
+      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable() && !prop.optionalSpec.isPresent()) {
+        // Property should be ignored for deserialization but is neither nullable nor optional - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
@@ -526,16 +602,29 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   public List<MethodSpec> createDefaultMethods(ClassName gsonTypeAdapterName, List<Property> properties) {
     List<MethodSpec> methodSpecs = new ArrayList<>(properties.size());
     for (Property prop : properties) {
-      ParameterSpec valueParam = ParameterSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop)).build();
+      ParameterSpec valueParam = null;
+      CodeBlock methodBody = null;
+      if (prop.optionalSpec.isPresent()) {
+        OptionalSpec opt = prop.optionalSpec.get();
+        TypeName argType = opt.wrapsPrimitive ? opt.wrappedType.unbox() : opt.wrappedType;
+        valueParam = ParameterSpec.builder(argType, "default" + upperCamelizeHumanName(prop)).build();
+        methodBody = CodeBlock.builder()
+                .addStatement("this.default$L = $T.$L($N)", upperCamelizeHumanName(prop), opt.optionalRawType, opt.ofNullableMethod, valueParam)
+                .addStatement("return this")
+                .build();
+      } else {
+        valueParam = ParameterSpec.builder(prop.type, "default" + upperCamelizeHumanName(prop)).build();
+        methodBody = CodeBlock.builder()
+                .addStatement("this.default$L = $N", upperCamelizeHumanName(prop), valueParam)
+                .addStatement("return this")
+                .build();
+      }
 
       methodSpecs.add(MethodSpec.methodBuilder("setDefault" + upperCamelizeHumanName(prop))
               .addModifiers(PUBLIC)
               .addParameter(valueParam)
               .returns(gsonTypeAdapterName)
-              .addCode(CodeBlock.builder()
-                      .addStatement("this.default$L = $N", upperCamelizeHumanName(prop), valueParam)
-                      .addStatement("return this")
-                      .build())
+              .addCode(methodBody)
               .build());
     }
     return methodSpecs;
@@ -548,25 +637,26 @@ public class AutoValueGsonExtension extends AutoValueExtension {
                                                TypeMirror typeAdapterFactory,
                                                Types typeUtils,
                                                List<TypeVariableName> typeParams) {
-    TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
+    TypeName propType = prop.optionalSpec.map(spec -> spec.wrappedType).orElse(prop.type);
+    TypeName type = prop.type.isPrimitive() ? prop.type.box() : propType;
     ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
 
     if (prop.typeAdapter != null) {
       if (typeUtils.isAssignable(prop.typeAdapter, typeAdapterFactory)) {
-        if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+        if (propType instanceof ParameterizedTypeName || propType instanceof TypeVariableName) {
           codeBuilder.addStatement("this.$N = $N = ($T) new $T().create(gson, $L)", adapterField, adapterField,
-              adp, TypeName.get(prop.typeAdapter), makeParameterizedType(prop.type, typeParams));
+              adp, TypeName.get(prop.typeAdapter), makeParameterizedType(propType, typeParams));
         } else {
           codeBuilder.addStatement("this.$N = $N = new $T().create(gson, $T.get($T.class))",
-              adapterField, adapterField, TypeName.get(prop.typeAdapter), TypeToken.class, prop.type);
+              adapterField, adapterField, TypeName.get(prop.typeAdapter), TypeToken.class, propType);
         }
       } else {
         codeBuilder.addStatement("this.$N = $N = new $T()", adapterField, adapterField,
             TypeName.get(prop.typeAdapter));
       }
-    } else if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+    } else if (propType instanceof ParameterizedTypeName || propType instanceof TypeVariableName) {
       codeBuilder.addStatement("this.$N = $N = ($T) gson.getAdapter($L)", adapterField, adapterField,
-          adp, makeParameterizedType(prop.type, typeParams));
+          adp, makeParameterizedType(propType, typeParams));
     } else {
       codeBuilder.addStatement("this.$N = $N = gson.getAdapter($T.class)", adapterField, adapterField, type);
     }
@@ -586,7 +676,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter,
         typeAdapterFactory, typeUtils, typeParams);
     block.endControlFlow();
-    block.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
+    if (prop.optionalSpec.isPresent()) {
+      block.addStatement("$N.write($N, $N.$N().$L)", adapterField, jsonWriter, annotatedParam, prop.methodName, prop.optionalSpec.get().orDefaultMethod);
+    } else {
+      block.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
+    }
+
   }
 
   public MethodSpec createWriteMethod(TypeName autoValueClassName,
@@ -725,7 +820,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           typeAdapterFactory, typeUtils, typeParams);
       readMethod.addCode(block.build());
       readMethod.endControlFlow();
-      readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
+      if (prop.optionalSpec.isPresent()) {
+        readMethod.addStatement("$N = $T.of($N.read($N))", field, prop.optionalSpec.get().optionalRawType, adapterField, jsonReader);
+      } else {
+        readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
+      }
       readMethod.addStatement("break");
       readMethod.endControlFlow();
     }
@@ -767,6 +866,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       } else {
         return CodeBlock.of("$T.valueOf(null)", field.type);
       }
+    }
+    if (prop.optionalSpec.isPresent()) {
+      OptionalSpec opt = prop.optionalSpec.get();
+      return CodeBlock.of("$T.$L", opt.optionalRawType, opt.emptyMethod);
     }
     if (prop.nullable()) {
       return null;
