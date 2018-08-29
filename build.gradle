@@ -22,7 +22,7 @@ allprojects {
 }
 
 ext.deps = [
-    gson: 'com.google.code.gson:gson:2.8.1'
+    gson: 'com.google.code.gson:gson:2.8.4'
 ]
 
 task wrapper(type: Wrapper) {

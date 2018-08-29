@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
+import com.google.gson.FieldNamingStrategy;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.SerializedName;
@@ -38,6 +39,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -154,6 +156,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       } else {
         return new String[0];
       }
+    }
+
+    public boolean hasSerializedNameAnnotation() {
+      SerializedName serializedName = element.getAnnotation(SerializedName.class);
+      return serializedName != null;
     }
 
     public boolean shouldSerialize() {
@@ -282,7 +289,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName adapterClassName = generateExternalAdapter
         ? ClassName.get(context.packageName(), autoValueClass.simpleName() + "_GsonTypeAdapter")
         : classNameClass.nestedClass("GsonTypeAdapter");
-    TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, adapterClassName, properties, params);
+    classToExtend = generateExternalAdapter ? classNameClass.simpleName() : classToExtend;
+    TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, adapterClassName, classToExtend,
+            properties, params);
 
     if (generateExternalAdapter) {
       try {
@@ -451,6 +460,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       ClassName className,
       ClassName autoValueClassName,
       ClassName gsonTypeAdapterName,
+      String classToExtend,
       List<Property> properties,
       List<TypeVariableName> typeParams) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
@@ -495,8 +505,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
       }
     }
+    constructor.addStatement("$1T fields = new $1T()", ParameterizedTypeName.get(ArrayList.class, String.class));
+    for (Property prop : properties) {
+      constructor.addStatement("fields.add($S)", prop.humanName);
+    }
 
     constructor.addStatement("this.gson = gson");
+    constructor.addStatement("this.realFieldNames = renameFields(fields, gson.fieldNamingStrategy())");
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
@@ -504,12 +519,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addModifiers(PUBLIC, FINAL)
         .superclass(superClass)
         .addFields(adapters.values())
+        .addField(FieldSpec.builder(ParameterizedTypeName.get(Map.class, String.class, String.class), "realFieldNames", PRIVATE, FINAL).build())
         .addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeAdapterFactory, typeUtils, typeParams))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
-            jsonAdapter, typeAdapterFactory, typeUtils, typeParams));
+            jsonAdapter, typeAdapterFactory, typeUtils, typeParams))
+        .addMethods(createFieldNamingMethods(classToExtend));
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
@@ -618,7 +635,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!prop.shouldSerialize()) {
         continue;
       }
-      writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
+      if (prop.hasSerializedNameAnnotation()) {
+        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
+      } else {
+        writeMethod.addStatement("$N.name(realFieldNames.get($S))", jsonWriter, prop.humanName);
+      }
       // for adapters handling non-primitive values, initialize the
       // adapter only when the value is actually present (non-null),
       // otherwise use a generic method of writing the null value
@@ -711,29 +732,50 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!prop.shouldDeserialize()) {
         continue;
       }
-      FieldSpec field = fields.get(prop);
-
-      for (String alternate : prop.serializedNameAlternate()) {
-        readMethod.addCode("case $S:\n", alternate);
+      if (prop.hasSerializedNameAnnotation()) {
+        FieldSpec field = fields.get(prop);
+        for (String alternate : prop.serializedNameAlternate()) {
+          readMethod.addCode("case $S:\n", alternate);
+        }
+        readMethod.beginControlFlow("case $S:", prop.serializedName());
+        FieldSpec adapterField = adapters.get(prop.type);
+        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
+        readMethod.beginControlFlow("if ($N == null)", adapterField);
+        CodeBlock.Builder block = CodeBlock.builder();
+        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter,
+                typeAdapterFactory, typeUtils, typeParams);
+        readMethod.addCode(block.build());
+        readMethod.endControlFlow();
+        readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
+        readMethod.addStatement("break");
+        readMethod.endControlFlow();
       }
-      readMethod.beginControlFlow("case $S:", prop.serializedName());
-      FieldSpec adapterField = adapters.get(prop.type);
-      readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
-      readMethod.beginControlFlow("if ($N == null)", adapterField);
-      CodeBlock.Builder block = CodeBlock.builder();
-      addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter,
-          typeAdapterFactory, typeUtils, typeParams);
-      readMethod.addCode(block.build());
-      readMethod.endControlFlow();
-      readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
-      readMethod.addStatement("break");
-      readMethod.endControlFlow();
     }
 
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
+    for (Property prop : properties) {
+      if (!prop.shouldDeserialize()) {
+        continue;
+      }
+      if (!prop.hasSerializedNameAnnotation()) {
+        FieldSpec field = fields.get(prop);
+        readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
+        FieldSpec adapterField = adapters.get(prop.type);
+        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
+        readMethod.beginControlFlow("if ($N == null)", adapterField);
+        CodeBlock.Builder block = CodeBlock.builder();
+        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter,
+                typeAdapterFactory, typeUtils, typeParams);
+        readMethod.addCode(block.build());
+        readMethod.endControlFlow();
+        readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
+        readMethod.addStatement("continue");
+        readMethod.endControlFlow();
+      }
+    }
     readMethod.addStatement("$N.skipValue()", jsonReader);
-    readMethod.endControlFlow();
+    readMethod.endControlFlow(); // default case
 
     readMethod.endControlFlow(); // switch
     readMethod.endControlFlow(); // while
@@ -756,6 +798,117 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement(format.toString(), fields.values().toArray());
 
     return readMethod.build();
+  }
+
+  private List<MethodSpec> createFieldNamingMethods(String classNameClass) {
+    List<MethodSpec> methodSpecs = new ArrayList<>(4);
+
+    ParameterSpec names = ParameterSpec.builder(ParameterizedTypeName.get(ArrayList.class, String.class), "names")
+            .build();
+    ParameterSpec name = ParameterSpec.builder(String.class, "name").build();
+    ParameterSpec fieldNamingStrategy = ParameterSpec.builder(FieldNamingStrategy.class, "fieldNamingStrategy").build();
+    ParameterSpec separator = ParameterSpec.builder(String.class, "separator").build();
+    ParameterSpec firstCharacter = ParameterSpec.builder(char.class, "firstCharacter").build();
+    ParameterSpec srcString = ParameterSpec.builder(String.class, "srcString").build();
+    ParameterSpec indexOfSubstring = ParameterSpec.builder(int.class, "indexOfSubstring").build();
+
+    ClassName fieldNamingPolicy = ClassName.get("com.google.gson", "FieldNamingPolicy");
+    ClassName locale = ClassName.get("java.util", "Locale");
+
+    MethodSpec modifyStringMethod = MethodSpec.methodBuilder("modifyString")
+            .addModifiers(PRIVATE, STATIC)
+            .returns(String.class)
+            .addParameter(firstCharacter)
+            .addParameter(srcString)
+            .addParameter(indexOfSubstring)
+            .addStatement("return ($1N < $2N.length()) ? $3N + $2N.substring($1N) : String.valueOf($3N)",
+                    indexOfSubstring, srcString, firstCharacter)
+            .build();
+
+    MethodSpec separateCamelCaseMethod = MethodSpec.methodBuilder("separateCamelCase")
+            .addModifiers(PRIVATE, STATIC)
+            .returns(String.class)
+            .addParameter(name)
+            .addParameter(separator)
+            .addStatement("$T translation = new StringBuilder()", StringBuilder.class)
+            .beginControlFlow("for (int i = 0, length = $N.length(); i < length; i++)", name)
+            .addStatement("char character = $N.charAt(i)", name)
+            .beginControlFlow("if ($T.isUpperCase(character) && translation.length() != 0)", Character.class)
+            .addStatement("translation.append($N)", separator)
+            .endControlFlow()
+            .addStatement("translation.append(character)")
+            .endControlFlow()
+            .addStatement("return translation.toString()")
+            .build();
+
+    MethodSpec upperCaseFirstLetterMethod = MethodSpec.methodBuilder("upperCaseFirstLetter")
+            .addModifiers(PRIVATE, STATIC)
+            .returns(String.class)
+            .addParameter(name)
+            .addStatement("$T fieldNameBuilder = new StringBuilder()", StringBuilder.class)
+            .addStatement("int index = 0")
+            .addStatement("char firstCharacter = $N.charAt(index)", name)
+            .addStatement("int length = $N.length()", name)
+            .beginControlFlow("while (index < length - 1)")
+            .beginControlFlow("if ($T.isLetter(firstCharacter))", Character.class)
+            .addStatement("break")
+            .endControlFlow()
+            .addStatement("fieldNameBuilder.append(firstCharacter)")
+            .addStatement("firstCharacter = $N.charAt(++index)", name)
+            .endControlFlow()
+            .beginControlFlow("if (!$T.isUpperCase(firstCharacter))", Character.class)
+            .addStatement("$T modifiedTarget = modifyString($T.toUpperCase(firstCharacter), $N, ++index)", String.class, Character.class, name)
+            .addStatement("return fieldNameBuilder.append(modifiedTarget).toString()")
+            .nextControlFlow("else")
+            .addStatement("return name")
+            .endControlFlow()
+            .build();
+
+    MethodSpec renameFieldMethod = MethodSpec.methodBuilder("renameFields")
+            .addModifiers(PRIVATE, STATIC)
+            .returns(ParameterizedTypeName.get(Map.class, String.class, String.class))
+            .addParameter(names)
+            .addParameter(fieldNamingStrategy)
+            .addStatement("$T renamedFields = new $T()", ParameterizedTypeName.get(Map.class, String
+                    .class, String.class), ParameterizedTypeName.get(HashMap.class, String.class, String.class))
+            .beginControlFlow("for ($T fieldName : $N)", String.class, names)
+            .beginControlFlow("if ($N instanceof $T)", fieldNamingStrategy, fieldNamingPolicy)
+			.beginControlFlow("switch (($T) $N)", fieldNamingPolicy, fieldNamingStrategy)
+            .addCode("case UPPER_CAMEL_CASE:\n", fieldNamingPolicy)
+            .addStatement("$>renamedFields.put(fieldName, $N(fieldName))", upperCaseFirstLetterMethod)
+            .addStatement("break")
+            .addCode("$<case UPPER_CAMEL_CASE_WITH_SPACES:\n", fieldNamingPolicy)
+            .addStatement("$>renamedFields.put(fieldName, $N($N(fieldName, \" \")))", upperCaseFirstLetterMethod, separateCamelCaseMethod)
+            .addStatement("break")
+            .addCode("$<case LOWER_CASE_WITH_UNDERSCORES:\n", fieldNamingPolicy)
+            .addStatement("$>renamedFields.put(fieldName, $N(fieldName, \"_\").toLowerCase($T.ENGLISH))", separateCamelCaseMethod, locale)
+            .addStatement("break")
+            .addCode("$<case LOWER_CASE_WITH_DASHES:\n", fieldNamingPolicy)
+            .addStatement("$>renamedFields.put(fieldName, $N(fieldName, \"-\").toLowerCase($T.ENGLISH))", separateCamelCaseMethod, locale)
+            .addStatement("break")
+            .addCode("$<case LOWER_CASE_WITH_DOTS:\n", fieldNamingPolicy)
+            .addStatement("$>renamedFields.put(fieldName, $N(fieldName, \".\").toLowerCase($T.ENGLISH))", separateCamelCaseMethod, locale)
+            .addStatement("break")
+            .addCode("$<default:\n")
+            .addStatement("$>renamedFields.put($1N, $1N)", "fieldName")
+            .endControlFlow() // switch
+            .nextControlFlow("else")
+            .beginControlFlow("try")
+            .addStatement("renamedFields.put(fieldName, $N.translateName($N.class.getDeclaredField(fieldName)))", fieldNamingStrategy, classNameClass)
+            .nextControlFlow("catch ($T E)", NoSuchFieldException.class)
+            .addStatement("renamedFields.put(fieldName, fieldName)")
+            .endControlFlow() // try
+            .endControlFlow() // if
+            .endControlFlow() // for
+            .addStatement("return renamedFields")
+            .build();
+
+    methodSpecs.add(renameFieldMethod);
+    methodSpecs.add(separateCamelCaseMethod);
+    methodSpecs.add(modifyStringMethod);
+    methodSpecs.add(upperCaseFirstLetterMethod);
+
+    return methodSpecs;
   }
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
