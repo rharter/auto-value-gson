@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.gson;
 
+import com.google.auto.common.GeneratedAnnotations;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.extension.AutoValueExtension;
@@ -45,10 +46,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.annotation.Generated;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -84,11 +85,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
 
-  private static final AnnotationSpec GENERATED =
-      AnnotationSpec.builder(Generated.class)
-          .addMember("value", "$S", AutoValueGsonExtension.class.getName())
-          .addMember("comments", "$S", GENERATED_COMMENTS)
-          .build();
+
 
   public static class Property {
     final String methodName;
@@ -264,9 +261,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .getOrDefault(MUTABLE_ADAPTERS_WITH_DEFAULT_SETTERS, "false"));
     collectionsDefaultToEmpty = Boolean.parseBoolean(env.getOptions()
         .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
-    boolean generatedAnnotationAvailable = context.processingEnvironment()
-        .getElementUtils()
-        .getTypeElement("javax.annotation.Generated") != null;
+    Optional<AnnotationSpec> generatedAnnotationSpec = GeneratedAnnotations.generatedAnnotation(env.getElementUtils())
+        .map(AutoValueGsonExtension::createGeneratedAnnotationSpec);
     TypeElement type = context.autoValueClass();
     boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     List<Property> properties = readProperties(context.properties());
@@ -292,12 +288,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     classToExtend = generateExternalAdapter ? classNameClass.simpleName() : classToExtend;
     TypeSpec typeAdapter = createTypeAdapter(context, classNameClass, autoValueClass, adapterClassName, classToExtend,
             properties, params);
-
+    
     if (generateExternalAdapter) {
       try {
         TypeSpec.Builder builder = typeAdapter.toBuilder();
-        if (generatedAnnotationAvailable) {
-          builder.addAnnotation(GENERATED);
+        if (generatedAnnotationSpec.isPresent()) {
+          builder.addAnnotation(generatedAnnotationSpec.get());
         }
         JavaFile.builder(context.packageName(), builder.build())
             .skipJavaLangImports(true)
@@ -320,8 +316,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
               .build())
           .addMethod(generateConstructor(properties, types));
 
-      if (generatedAnnotationAvailable) {
-        subclass.addAnnotation(GENERATED);
+      if (generatedAnnotationSpec.isPresent()) {
+        subclass.addAnnotation(generatedAnnotationSpec.get());
       }
 
       if (!typeParams.isEmpty()) {
@@ -335,6 +331,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
       return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
     }
+  }
+  
+  private static AnnotationSpec createGeneratedAnnotationSpec(TypeElement generatedAnnotationTypeElement) {
+    return AnnotationSpec.builder(ClassName.get(generatedAnnotationTypeElement))
+      .addMember("value", "$S", AutoValueGsonExtension.class.getName())
+      .addMember("comments", "$S", GENERATED_COMMENTS)
+      .build();
   }
 
   public List<Property> readProperties(Map<String, ExecutableElement> properties) {
