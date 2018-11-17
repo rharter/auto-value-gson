@@ -1,5 +1,6 @@
 import org.gradle.internal.jvm.Jvm
 
+apply plugin: 'net.ltgt.apt'
 apply plugin: 'java-library'
 apply plugin: 'maven-publish'
 
@@ -7,8 +8,8 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-    annotationProcessor "net.ltgt.gradle.incap:incap-processor:0.2"
-    annotationProcessor 'com.google.auto.service:auto-service:1.0-rc4'
+    apt "net.ltgt.gradle.incap:incap-processor:0.2"
+    apt 'com.google.auto.service:auto-service:1.0-rc4'
     compileOnly "net.ltgt.gradle.incap:incap:0.2"
     compileOnly 'com.google.auto.service:auto-service:1.0-rc4'
 
