@@ -6,7 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+import static java.lang.annotation.RetentionPolicy.CLASS;
 
 /**
  * Annotation to indicate that a given class should generate a concrete implementation of a
@@ -22,7 +22,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  *   }
  * </pre></code>
  */
-@Retention(SOURCE)
+@Retention(CLASS)
 @Target(TYPE)
 public @interface GsonTypeAdapterFactory {
 }

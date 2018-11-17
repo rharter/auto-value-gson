@@ -1,15 +1,15 @@
 apply plugin: 'java'
-apply plugin: "net.ltgt.apt-idea"
+apply plugin: "net.ltgt.apt"
 
 dependencies {
-    compile 'com.google.code.gson:gson:2.8.4'
-    apt 'com.google.auto.value:auto-value:1.6'
-    compileOnly 'com.google.auto.value:auto-value-annotations:1.6'
+    compile 'com.google.code.gson:gson:2.8.5'
+    apt 'com.google.auto.value:auto-value:1.6.3rc1'
+    compileOnly 'com.google.auto.value:auto-value-annotations:1.6.3rc1'
     apt project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
     compile project(':auto-value-gson-annotations')
 
     testCompile 'junit:junit:4.12'
-    testCompileOnly 'com.google.auto.value:auto-value:1.5.2'
-    testApt 'com.google.auto.value:auto-value:1.5.2'
+    testCompileOnly 'com.google.auto.value:auto-value:1.6.3rc1'
+    testApt 'com.google.auto.value:auto-value:1.6.3rc1'
 }
