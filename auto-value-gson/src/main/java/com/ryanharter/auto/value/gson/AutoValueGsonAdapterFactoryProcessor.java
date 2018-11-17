@@ -18,6 +18,8 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
+
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,11 +49,13 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
+import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATING;
 
 /**
  * Generates a Gson {@link TypeAdapterFactory} that adapts all {@link AutoValue} annotated
  * Gson serializable classes.
  */
+@IncrementalAnnotationProcessor(AGGREGATING)
 @AutoService(Processor.class)
 public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 

@@ -7,6 +7,9 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
+    compileOnly("net.ltgt.gradle.incap:incap:0.2")
+    annotationProcessor("net.ltgt.gradle.incap:incap-processor:0.2")
+
     api project(':auto-value-gson-annotations')
     api deps.gson
     implementation 'com.squareup:javapoet:1.11.0'
