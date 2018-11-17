@@ -38,7 +38,7 @@ allprojects { project ->
 }
 
 ext.deps = [
-    gson: 'com.google.code.gson:gson:2.8.4'
+    gson: 'com.google.code.gson:gson:2.8.5'
 ]
 
 task wrapper(type: Wrapper) {
