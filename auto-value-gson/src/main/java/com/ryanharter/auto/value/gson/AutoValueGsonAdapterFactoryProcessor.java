@@ -106,7 +106,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         String adapterName = classNameOf(type, "_");
         String qualifiedName = classNameOf(type, ".");
         String packageName = packageNameOf(type);
-        TypeSpec typeAdapterFactory = createTypeAdapterFactory(elements, packageName,
+        TypeSpec typeAdapterFactory = createTypeAdapterFactory(type, elements, packageName,
                 adapterName, qualifiedName);
         JavaFile file = JavaFile.builder(packageName, typeAdapterFactory).build();
         try {
@@ -122,12 +122,14 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
   }
 
   private TypeSpec createTypeAdapterFactory(
+      TypeElement sourceElement,
       List<Element> elements,
       String packageName,
       String adapterName,
       String qualifiedName) {
     TypeSpec.Builder factory = TypeSpec.classBuilder(
         ClassName.get(packageName, "AutoValueGson_" + adapterName));
+    factory.addOriginatingElement(sourceElement);
     factory.addModifiers(PUBLIC, FINAL);
     factory.superclass(ClassName.get(packageName, qualifiedName));
 
@@ -149,6 +151,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .addStatement("Class<?> rawType = $N.getRawType()", type);
 
     List<Pair<Element, ExecutableElement>> properties = elements.stream()
+        .peek(factory::addOriginatingElement)
         .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
         .filter(entry -> entry.second != null)
         .collect(Collectors.toList());
