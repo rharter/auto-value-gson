@@ -8,16 +8,32 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath "net.ltgt.gradle:gradle-apt-plugin:0.13"
+        classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
     }
 }
 
-allprojects {
-    repositories {
+allprojects { project ->
+    project.repositories {
         maven {
             url 'http://oss.sonatype.org/content/repositories/snapshots'
         }
         mavenCentral()
+    }
+
+    project.plugins.withId("net.ltgt.apt") {
+        try {
+            // automatically apply net.ltgt.apt-idea whenever net.ltgt.apt is used
+            project.apply plugin: "net.ltgt.apt-idea"
+            // disable addAptDependencies (if you delegate build actions to Gradle)
+            project.plugins.withType(JavaPlugin) {
+                project.afterEvaluate {
+                    project.idea.module.apt.addAptDependencies = false
+                }
+            }
+        } catch (ignored) {
+            // ignore, in case an older version of net.ltgt.apt is being used
+            // that doesn't come with net.ltgt.apt-idea.
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: "net.ltgt.apt-idea"
+apply plugin: "net.ltgt.apt"
 
 dependencies {
     compile 'com.google.code.gson:gson:2.8.4'
