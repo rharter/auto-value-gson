@@ -85,8 +85,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
 
-
-
   public static class Property {
     final String methodName;
     final String humanName;
@@ -196,6 +194,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private boolean defaultSetters = false;
   private boolean collectionsDefaultToEmpty = false;
+
+  @Override
+  public IncrementalExtensionType incrementalType(ProcessingEnvironment processingEnvironment) {
+    return IncrementalExtensionType.ISOLATING;
+  }
 
   @Override
   public boolean applicable(Context context) {
