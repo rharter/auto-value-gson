@@ -3,6 +3,7 @@ apply plugin: "net.ltgt.apt"
 
 dependencies {
     annotationProcessor 'com.google.auto.value:auto-value:1.6.3rc1'
+    annotationProcessor 'net.ltgt.gradle.incap:incap:0.2' // https://github.com/google/auto/issues/615#issuecomment-438045951
     annotationProcessor project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
     compileOnly 'com.google.auto.value:auto-value-annotations:1.6.3rc1'
