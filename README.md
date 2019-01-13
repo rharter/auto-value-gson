@@ -72,8 +72,6 @@ To have support for fields with generic parameters (eg. `List<B>`) you need to u
 dependency to at least **2.8.0**, which introduces the helper `TypeToken.getParameterized()`
 see [Gson Changelog](https://github.com/google/gson/blob/master/CHANGELOG.md#version-28).
 
-Note that the `types` is just a holder for the type arguments for the generics.
-
 ```java
 @AutoValue public abstract class Foo<A, B, C> {
 
@@ -87,6 +85,10 @@ Note that the `types` is just a holder for the type arguments for the generics.
   }
 }
 ```
+
+Note that the `types` is an array of the `Type` representations of the given type's generics. If 
+`Foo` is parameterized as `Foo<String, Integer, Boolean>`, then the `Type` array passed in should be
+an array of `{String.class, Integer.class, Boolean.class}`.
 
 ## Factory
 
