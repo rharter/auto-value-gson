@@ -17,17 +17,12 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-
-import java.lang.reflect.ParameterizedType;
-import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
-
 import java.io.IOException;
-import java.util.LinkedList;
+import java.lang.reflect.ParameterizedType;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -43,6 +38,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -80,41 +76,59 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    List<Element> elements = new LinkedList<>();
-    for (Element element : roundEnv.getElementsAnnotatedWith(AutoValue.class)) {
-      AutoValueExtension.Context context = new LimitedContext(processingEnv, (TypeElement) element);
-      if (extension.applicable(context)) {
-        elements.add(element);
+    Set<? extends Element> adapterFactories = roundEnv.getElementsAnnotatedWith(GsonTypeAdapterFactory.class);
+    if (adapterFactories.isEmpty()) {
+      return false;
+    }
+    Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
+    List<Element> elements = autoValueElements.stream()
+        .filter(e -> extension.applicable(new LimitedContext(processingEnv, (TypeElement) e)))
+        .sorted((o1, o2) -> {
+          final String o1Name = classNameOf((TypeElement)o1, ".");
+          final String o2Name = classNameOf((TypeElement)o2, ".");
+          return o1Name.compareTo(o2Name);
+        })
+        .collect(Collectors.toList());
+
+    if (elements.isEmpty()) {
+      Element reportableElement = adapterFactories.iterator().next();
+      if (!autoValueElements.isEmpty()) {
+        processingEnv.getMessager().printMessage(ERROR,
+            "Failed to write TypeAdapterFactory: Cannot generate class for this "
+                + "@GsonTypeAdapterFactory-annotated element because while @AutoValue-annotated "
+                + "elements were found on the compilation classpath, none of them contain a "
+                + "requisite public static TypeAdapter-returning signature method to opt in to "
+                + "being included in @GsonTypeAdapterFactory-generated factories. See the "
+                + "auto-value-gson README for more information on declaring these.",
+            reportableElement);
+      } else {
+        processingEnv.getMessager().printMessage(ERROR,
+            "Failed to write TypeAdapterFactory: Cannot generate class for this "
+                + "@GsonTypeAdapterFactory-annotated element because no @AutoValue-annotated "
+                + "elements were found on the compilation classpath.",
+            reportableElement);
       }
+      return false;
     }
 
-    elements.sort((o1, o2) -> {
-      final String o1Name = classNameOf((TypeElement)o1, ".");
-      final String o2Name = classNameOf((TypeElement)o2, ".");
-      return o1Name.compareTo(o2Name);
-    });
-
-    if (!elements.isEmpty()) {
-      Set<? extends Element> adaptorFactories = roundEnv.getElementsAnnotatedWith(GsonTypeAdapterFactory.class);
-      for (Element element : adaptorFactories) {
-        if (!element.getModifiers().contains(ABSTRACT)) {
-          error(element, "Must be abstract!");
-        }
-        TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
-        if (!implementsTypeAdapterFactory(type)) {
-          error(element, "Must implement TypeAdapterFactory!");
-        }
-        String adapterName = classNameOf(type, "_");
-        String qualifiedName = classNameOf(type, ".");
-        String packageName = packageNameOf(type);
-        TypeSpec typeAdapterFactory = createTypeAdapterFactory(type, elements, packageName,
-                adapterName, qualifiedName);
-        JavaFile file = JavaFile.builder(packageName, typeAdapterFactory).build();
-        try {
-          file.writeTo(processingEnv.getFiler());
-        } catch (IOException e) {
-          processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage());
-        }
+    for (Element element : adapterFactories) {
+      if (!element.getModifiers().contains(ABSTRACT)) {
+        error(element, "Must be abstract!");
+      }
+      TypeElement type = (TypeElement) element; // Safe to cast because this is only applicable on types anyway
+      if (!implementsTypeAdapterFactory(type)) {
+        error(element, "Must implement TypeAdapterFactory!");
+      }
+      String adapterName = classNameOf(type, "_");
+      String qualifiedName = classNameOf(type, ".");
+      String packageName = packageNameOf(type);
+      TypeSpec typeAdapterFactory = createTypeAdapterFactory(type, elements, packageName,
+              adapterName, qualifiedName);
+      JavaFile file = JavaFile.builder(packageName, typeAdapterFactory).build();
+      try {
+        file.writeTo(processingEnv.getFiler());
+      } catch (IOException e) {
+        processingEnv.getMessager().printMessage(ERROR, "Failed to write TypeAdapterFactory: " + e.getLocalizedMessage(), element);
       }
     }
 
