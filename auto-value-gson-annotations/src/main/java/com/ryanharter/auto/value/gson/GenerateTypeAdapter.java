@@ -7,8 +7,11 @@ import com.google.gson.reflect.TypeToken;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,9 +30,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface GenerateTypeAdapter {
 
   TypeAdapterFactory FACTORY = new TypeAdapterFactory() {
+    private final Class<?> typeArrayClass = Array.newInstance(Type.class, 0).getClass();
     private final Map<Class<?>, Constructor<? extends TypeAdapter>> adapters =
-        Collections.synchronizedMap(
-            new LinkedHashMap<Class<?>, Constructor<? extends TypeAdapter>>());
+        Collections.synchronizedMap(new LinkedHashMap<>());
 
     @SuppressWarnings("unchecked")
     @Override
@@ -48,7 +51,7 @@ public @interface GenerateTypeAdapter {
         if (constructor.getParameterTypes().length == 1) {
           return constructor.newInstance(gson);
         } else {
-          return constructor.newInstance(gson, type);
+          return constructor.newInstance(gson, ((ParameterizedType) type.getType()).getActualTypeArguments());
         }
       } catch (IllegalAccessException e) {
         throw new RuntimeException("Unable to invoke " + constructor, e);
@@ -87,11 +90,11 @@ public @interface GenerateTypeAdapter {
           adapterCtor =
               (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class);
         } catch (NoSuchMethodException e) {
-          // Try the gson + typetoken constructor
+          // Try the gson + type[] constructor
           //noinspection unchecked
           adapterCtor =
               (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class,
-                  TypeToken.class);
+                  typeArrayClass);
         }
       } catch (ClassNotFoundException e) {
         adapterCtor = findConstructorForClass(cls.getSuperclass());
