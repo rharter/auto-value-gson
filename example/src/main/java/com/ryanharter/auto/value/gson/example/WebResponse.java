@@ -4,6 +4,7 @@ import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +14,7 @@ import java.util.Map;
   public abstract List<T> dataList();
   public abstract Map<String, List<T>> dataMap();
 
-  public static <T> TypeAdapter<WebResponse<T>> typeAdapter(Gson gson, TypeToken<? extends WebResponse<T>> typeToken) {
-    return new AutoValue_WebResponse.GsonTypeAdapter(gson, typeToken);
+  public static <T> TypeAdapter<WebResponse<T>> typeAdapter(Gson gson, Type[] types) {
+    return new AutoValue_WebResponse.GsonTypeAdapter<>(gson, types);
   }
 }

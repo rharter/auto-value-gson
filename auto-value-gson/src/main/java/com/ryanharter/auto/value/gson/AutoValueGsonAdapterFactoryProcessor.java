@@ -18,6 +18,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
+import java.lang.reflect.ParameterizedType;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import java.io.IOException;
@@ -171,7 +172,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       if (params != null && params.size() == 1) {
         create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, elementType, gson);
       } else {
-        create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N, ($T) $N)", t, elementType, gson, params.get(1), type);
+        create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N, (($T) $N.getType()).getActualTypeArguments())",
+            t,
+            elementType,
+            gson,
+            ParameterizedType.class,
+            type);
       }
     }
     create.nextControlFlow("else");

@@ -484,12 +484,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (!typeParams.isEmpty()) {
 
       ParameterSpec typeAdapter = ParameterSpec
-          .builder(ParameterizedTypeName.get(ClassName.get(TypeToken.class), WildcardTypeName.subtypeOf(autoValueTypeName)), "typeToken")
+          .builder(ArrayTypeName.of(Type.class), "types")
           .build();
       constructor.addParameter(typeAdapter);
-
-      constructor.addStatement("$1T type = ($1T) $2N.getType()", ParameterizedType.class, typeAdapter);
-      constructor.addStatement("typeArgs = type.getActualTypeArguments()", Type.class);
+      constructor.addStatement("typeArgs = $N", typeAdapter);
     }
 
     ProcessingEnvironment processingEnvironment = context.processingEnvironment();
