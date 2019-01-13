@@ -65,7 +65,7 @@ AutoValue generated implementation.
 ## Generics support
 
 If your annotated class uses generics, you'll have to modify your static method a little so
-AutoValue will know how to generate an appropriate adapter. Simply add a `TypeToken` parameter
+AutoValue will know how to generate an appropriate adapter. Simply add a `TypeToken<?>` parameter
 and pass it to the generated `GsonTypeAdapter` class.
 
 To have support for fields with generic parameters (eg. `List<B>`) you need to upgrade your Gson
@@ -80,11 +80,15 @@ see [Gson Changelog](https://github.com/google/gson/blob/master/CHANGELOG.md#ver
   abstract Map<String, List<C>> dataMap();
 
   public static <A, B, C> TypeAdapter<Foo<A, B, C>> typeAdapter(Gson gson,
-      TypeToken<? extends Foo<A, B, C>> typeToken) {
-    return new AutoValue_Foo.GsonTypeAdapter(gson, typeToken);
+      Type[] types) {
+    return new AutoValue_Foo.GsonTypeAdapter<>(gson, types);
   }
 }
 ```
+
+Note that the `types` is an array of the `Type` representations of the given type's generics. If 
+`Foo` is parameterized as `Foo<String, Integer, Boolean>`, then the `Type` array passed in should be
+an array of `{String.class, Integer.class, Boolean.class}`.
 
 ## Factory
 
