@@ -158,14 +158,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return serializedName != null;
     }
 
-    public boolean shouldSerialize() {
+    public boolean shouldNotSerialize() {
       Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore == null || ignore.value() == Ignore.Type.DESERIALIZATION;
+      return ignore != null && ignore.value().ordinal() <= 1;
     }
 
-    public boolean shouldDeserialize() {
+    public boolean shouldNotDeserialize() {
       Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore == null || ignore.value() == Ignore.Type.SERIALIZATION;
+      return ignore != null && ignore.value().ordinal() >= 1;
     }
 
     public boolean nullable() {
@@ -358,7 +358,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     Set<TypeName> seenTypes = Sets.newHashSet();
     NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
-      if (!property.shouldDeserialize() && !property.shouldSerialize()) {
+      if (property.shouldNotDeserialize() && !property.shouldNotSerialize()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
@@ -503,7 +503,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       defaultValueFields = createDefaultValueFields(properties);
     }
     for (Property prop : properties) {
-      if (defaultSetters && !prop.shouldDeserialize() && !prop.nullable()) {
+      if (defaultSetters && prop.shouldNotDeserialize() && !prop.nullable()) {
         // Property should be ignored for deserialization but is not marked as nullable - we require a default value
         constructor.addParameter(prop.type, "default" + upperCamelizeHumanName(prop));
         constructor.addStatement("this.$N = default$L", defaultValueFields.get(prop), upperCamelizeHumanName(prop));
@@ -636,7 +636,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
-      if (!prop.shouldSerialize()) {
+      if (prop.shouldNotSerialize()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -733,7 +733,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("switch ($N)", name);
     for (Property prop : properties) {
-      if (!prop.shouldDeserialize()) {
+      if (prop.shouldNotDeserialize()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -759,7 +759,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
     for (Property prop : properties) {
-      if (!prop.shouldDeserialize()) {
+      if (prop.shouldNotDeserialize()) {
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
