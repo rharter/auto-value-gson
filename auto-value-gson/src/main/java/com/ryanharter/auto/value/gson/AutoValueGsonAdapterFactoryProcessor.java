@@ -169,7 +169,10 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       //noinspection ConstantConditions We've filtered absent ones
       ExecutableElement typeAdapterMethod = pair.second;
       List<? extends VariableElement> params = typeAdapterMethod.getParameters();
-      if (params != null && params.size() == 1) {
+      if (params == null || params.size() == 0) {
+        create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "()", t,
+            elementType);
+      } else if (params.size() == 1) {
         create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N)", t, elementType, gson);
       } else {
         create.addStatement("return (TypeAdapter<$T>) $T." + typeAdapterMethod.getSimpleName() + "($N, (($T) $N.getType()).getActualTypeArguments())",
