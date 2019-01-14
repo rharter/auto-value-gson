@@ -122,26 +122,6 @@ Gson gson = new GsonBuilder()
     .create();
 ```
 
-## Compiler options
-
-- `autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will default to their empty
-types (e.g. `List` -> `Collections.emptyList()`). Value is `true` or `false`. By default this is `false`.
-- `autovaluegson.mutableAdaptersWithDefaultSetters` - Indicates that the generated TypeAdapter should be mutable with setters for default values. Value is `true` or `false`. By default this is `false`.
-
-```gradle
-android {
-  // ...
-  defaultConfig {
-    // ...
-    javaCompileOptions {
-      annotationProcessorOptions {
-        arguments = ['autovaluegson.defaultCollectionsToEmpty': 'true']
-      }
-    }
-  }
-}
-```
-
 ## @GenerateTypeAdapter
 
 There is an annotation in the `auto-value-gson-annotations` artifact called `@GenerateTypeAdapter`. This annotation
