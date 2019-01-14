@@ -368,4 +368,64 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
       .and()
       .generatesSources(expected);
   }
+
+  @Test public void noAutoValueModels_shouldError() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+      + "package test;\n"
+      + "import com.google.gson.TypeAdapter;\n"
+      + "import com.google.gson.Gson;\n"
+      + "public abstract class Foo {\n"
+      + "  public static TypeAdapter<Foo> typeAdapter(Gson gson) {\n"
+      + "    return null;\n"
+      + "  }\n"
+      + "  public abstract String getName();\n"
+      + "  public abstract boolean isAwesome();\n"
+      + "}");
+    JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+      + "package test;\n"
+      + "import com.google.gson.TypeAdapterFactory;\n"
+      + "import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;\n"
+      + "@GsonTypeAdapterFactory\n"
+      + "public abstract class MyAdapterFactory implements TypeAdapterFactory {\n"
+      + "  public static TypeAdapterFactory create() {\n"
+      + "    return new AutoValueGson_MyAdapterFactory();\n"
+      + "  }\n"
+      + "}");
+
+    assertAbout(javaSources())
+      .that(ImmutableSet.of(source1, factorySource))
+      .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+      .failsToCompile()
+      .withErrorContaining("no @AutoValue-annotated elements were found on the "
+          + "compilation classpath");
+  }
+
+  @Test public void noAutoValueModelsWithAdapterMethods_shouldError() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+      + "package test;\n"
+      + "import com.google.auto.value.AutoValue;\n"
+      + "import com.google.gson.Gson;\n"
+      + "@AutoValue public abstract class Foo {\n"
+      + "  public abstract String getName();\n"
+      + "  public abstract boolean isAwesome();\n"
+      + "}");
+    JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+      + "package test;\n"
+      + "import com.google.gson.TypeAdapterFactory;\n"
+      + "import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;\n"
+      + "@GsonTypeAdapterFactory\n"
+      + "public abstract class MyAdapterFactory implements TypeAdapterFactory {\n"
+      + "  public static TypeAdapterFactory create() {\n"
+      + "    return new AutoValueGson_MyAdapterFactory();\n"
+      + "  }\n"
+      + "}");
+
+    assertAbout(javaSources())
+      .that(ImmutableSet.of(source1, factorySource))
+      .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+      .failsToCompile()
+      .withErrorContaining("none of them contain a requisite public static "
+          + "TypeAdapter-returning signature method to opt in to being included in "
+          + "@GsonTypeAdapterFactory-generated factories");
+  }
 }
