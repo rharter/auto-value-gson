@@ -27,15 +27,6 @@ public @interface Ignore {
      */
     SERIALIZATION,
     /**
-     * Ignore this field for deserialization only. The annotated property will be ignored by the
-     * generated Gson TypeAdapter when creating an object from JSON, and instead the default value
-     * for this property will be used.
-     * <p>
-     * If this field is not marked as nullable, a default value must be supplied to the generated
-     * TypeAdapter's constructor.
-     */
-    DESERIALIZATION,
-    /**
      * Ignore this field for both serialization and deserialization.
      * <p>
      * If this field is not marked as nullable, a default value must be supplied to the generated
@@ -43,6 +34,15 @@ public @interface Ignore {
      * <p>
      * This is the default value for the Ignore annotation.
      */
-    BOTH
+    BOTH,
+    /**
+     * Ignore this field for deserialization only. The annotated property will be ignored by the
+     * generated Gson TypeAdapter when creating an object from JSON, and instead the default value
+     * for this property will be used.
+     * <p>
+     * If this field is not marked as nullable, a default value must be supplied to the generated
+     * TypeAdapter's constructor.
+     */
+    DESERIALIZATION
   }
 }
