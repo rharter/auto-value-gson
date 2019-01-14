@@ -358,7 +358,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     Set<TypeName> seenTypes = Sets.newHashSet();
     NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
-      if (!property.shouldNotDeserialize() && !property.shouldNotSerialize()) {
+      if (property.shouldNotDeserialize() && property.shouldNotSerialize()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
