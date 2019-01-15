@@ -185,16 +185,13 @@ new GsonBuilder()
     .toJson(myFooInstance);
 ```
 
-Proguard rules for obfuscation:
 
-```
-# Retain generated classes that end in the suffix
--keepnames class **_GsonTypeAdapter
 
-# Prevent obfuscation of types which use @GenerateTypeAdapter since the simple name
-# is used to reflectively look up the generated adapter.
--keepnames @com.ryanharter.auto.value.gson.GenerateTypeAdapter class *
-```
+### R8 / ProGuard:
+
+If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/moshi/src/main/resources/META-INF/proguard/moshi.pro). If using Android, this requires Android Gradle Plugin 3.2.0+.
+
+On Proguard 6.1+ or R8, these rules will be automatically detected.
 
 ## Download
 
