@@ -124,7 +124,7 @@ Gson gson = new GsonBuilder()
 
 ## @GenerateTypeAdapter
 
-There is an annotation in the `auto-value-gson-annotations` artifact called `@GenerateTypeAdapter`. This annotation
+There is an annotation in the `auto-value-gson-runtime` artifact called `@GenerateTypeAdapter`. This annotation
 can be set on types to indicate to the extension that you want the generated adapter to be a top level class in the same
 package. The name of this class will be the AutoValue class's name plus `_GsonTypeAdapter` suffix.
 
@@ -202,7 +202,7 @@ Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```groovy
 annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.8.0'
-compile 'com.ryanharter.auto.value:auto-value-gson-annotations:0.8.0'
+compile 'com.ryanharter.auto.value:auto-value-gson-runtime:0.8.0'
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
