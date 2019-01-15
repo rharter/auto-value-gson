@@ -29,10 +29,10 @@ import org.jetbrains.annotations.Nullable;
 
 import static com.ryanharter.auto.value.gson.internal.Util.EMPTY_TYPE_ARRAY;
 
-/** Factory methods for types. */
+/** Factory methods for types. Adapted from <a href="https://git.io/fhWvz">Moshi</a>. */
 @CheckReturnValue
-public final class Types {
-  private Types() {
+public final class WildcardUtil {
+  private WildcardUtil() {
   }
 
   /**

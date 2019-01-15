@@ -21,7 +21,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
-import com.ryanharter.auto.value.gson.internal.Types;
+import com.ryanharter.auto.value.gson.internal.WildcardUtil;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -877,7 +877,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         throw new IllegalArgumentException(
             "Unrepresentable wildcard type. Cannot have more than one bound: " + wildcard);
       }
-      block.add("$T.$L($T.class)", Types.class, method, target);
+      block.add("$T.$L($T.class)", WildcardUtil.class, method, target);
     } else {
       block.add("$T.class", typeArg);
     }

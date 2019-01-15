@@ -82,7 +82,7 @@ final class Util {
       if (rawType instanceof Class<?>) {
         Class<?> enclosingClass = ((Class<?>) rawType).getEnclosingClass();
         if (ownerType != null) {
-          if (enclosingClass == null || Types.getRawType(ownerType) != enclosingClass) {
+          if (enclosingClass == null || WildcardUtil.getRawType(ownerType) != enclosingClass) {
             throw new IllegalArgumentException(
                 "unexpected owner type for " + rawType + ": " + ownerType);
           }
@@ -116,7 +116,7 @@ final class Util {
 
     @Override public boolean equals(Object other) {
       return other instanceof ParameterizedType
-          && Types.equals(this, (ParameterizedType) other);
+          && WildcardUtil.equals(this, (ParameterizedType) other);
     }
 
     @Override public int hashCode() {
@@ -154,7 +154,7 @@ final class Util {
 
     @Override public boolean equals(Object o) {
       return o instanceof GenericArrayType
-          && Types.equals(this, (GenericArrayType) o);
+          && WildcardUtil.equals(this, (GenericArrayType) o);
     }
 
     @Override public int hashCode() {
@@ -204,7 +204,7 @@ final class Util {
 
     @Override public boolean equals(Object other) {
       return other instanceof WildcardType
-          && Types.equals(this, (WildcardType) other);
+          && WildcardUtil.equals(this, (WildcardType) other);
     }
 
     @Override public int hashCode() {
