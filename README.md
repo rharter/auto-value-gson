@@ -124,7 +124,7 @@ Gson gson = new GsonBuilder()
 
 ## @GenerateTypeAdapter
 
-There is an annotation in the `auto-value-gson-runtime` artifact called `@GenerateTypeAdapter`. This annotation
+There is an annotation in the `auto-value-gson` artifact called `@GenerateTypeAdapter`. This annotation
 can be set on types to indicate to the extension that you want the generated adapter to be a top level class in the same
 package. The name of this class will be the AutoValue class's name plus `_GsonTypeAdapter` suffix.
 
