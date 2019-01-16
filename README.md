@@ -185,9 +185,7 @@ new GsonBuilder()
     .toJson(myFooInstance);
 ```
 
-
-
-### R8 / ProGuard:
+### R8 / ProGuard
 
 If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/moshi/src/main/resources/META-INF/proguard/autovaluegson.pro). If using Android, this requires Android Gradle Plugin 3.2.0+.
 
@@ -197,18 +195,12 @@ On Proguard 6.1+ or R8, these rules will be automatically detected.
 
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
-```groovy
-annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.8.0'
-compile 'com.ryanharter.auto.value:auto-value-gson-runtime:0.8.0'
+```kotlin
+annotationProcessor("com.ryanharter.auto.value:auto-value-gson:0.8.0")
+implementation("com.ryanharter.auto.value:auto-value-gson-runtime:0.8.0")
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
-
-You will also need a normal runtime dependency for gson itself.
-
-```groovy
-compile 'com.google.code.gson:gson:2.8.0'
-```
 
 ## License
 
