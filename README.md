@@ -171,7 +171,29 @@ new GsonBuilder()
 
 If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro).
 
-If using Android, Android Gradle Plugin 3.3.0+, these rules will automatically be detected. Note that at the time of writing, there is a bug and you should follow steps [here](https://github.com/square/moshi/issues/738#issuecomment-453024615).
+#### If using Android
+
+Android Gradle Plugin 3.3.0+ will automatically extract these rules. Note that for proguard support, you must use ProGuard 6.1.0beta2 or later.
+
+Set `android.proguard.enableRulesExtraction=false` and then copy the proguard rules to your project like described above.
+
+OR
+
+Upgrade proguard to 6.1.0beta2:
+
+```groovy
+buildscript {
+    configurations.all {
+        resolutionStrategy {
+            force 'net.sf.proguard:proguard-gradle:6.1.0beta2'
+        }
+    }
+}
+```
+
+OR
+
+Enable R8 by setting `android.enableR8=true`.
 
 ## Download
 
