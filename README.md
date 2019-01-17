@@ -187,9 +187,9 @@ new GsonBuilder()
 
 ### R8 / ProGuard
 
-If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro). If using Android, this requires Android Gradle Plugin 3.2.0+.
+If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro).
 
-On Proguard 6.1+ or R8, these rules will be automatically detected.
+If using Android, Android Gradle Plugin 3.3.0+, these rules will automatically be detected.
 
 ## Download
 
