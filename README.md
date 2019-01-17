@@ -171,7 +171,7 @@ new GsonBuilder()
 
 If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro).
 
-If using Android, Android Gradle Plugin 3.3.0+, these rules will automatically be detected.
+If using Android, Android Gradle Plugin 3.3.0+, these rules will automatically be detected. Note that at the time of writing, there is a bug and you should follow steps [here](https://github.com/square/moshi/issues/738#issuecomment-453024615).
 
 ## Download
 
