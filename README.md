@@ -25,24 +25,6 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
 }
 ```
 
-Additionally, you can set custom default values. This is disabled by default. See [Compiler options](#compiler-options) on how to enable this.
-
-```java
-@AutoValue public abstract class Foo {
-  abstract String bar();
-  @SerializedName("Baz") abstract String baz();
-  abstract int quux();
-  abstract String with_underscores();
-
-  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
-    return new AutoValue_Foo.GsonTypeAdapter(gson)
-      // You can set custom default values
-      .setDefaultQuux(4711)
-      .setDefaultWith_underscores("");
-  }
-}
-```
-
 Now build your project and de/serialize your Foo.
 
 ## The TypeAdapter
