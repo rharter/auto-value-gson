@@ -25,24 +25,6 @@ annotated class returning a TypeAdapter.  You can also annotate your properties 
 }
 ```
 
-Additionally, you can set custom default values. This is disabled by default. See [Compiler options](#compiler-options) on how to enable this.
-
-```java
-@AutoValue public abstract class Foo {
-  abstract String bar();
-  @SerializedName("Baz") abstract String baz();
-  abstract int quux();
-  abstract String with_underscores();
-
-  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
-    return new AutoValue_Foo.GsonTypeAdapter(gson)
-      // You can set custom default values
-      .setDefaultQuux(4711)
-      .setDefaultWith_underscores("");
-  }
-}
-```
-
 Now build your project and de/serialize your Foo.
 
 ## The TypeAdapter
@@ -185,33 +167,44 @@ new GsonBuilder()
     .toJson(myFooInstance);
 ```
 
-Proguard rules for obfuscation:
+### R8 / ProGuard
 
-```
-# Retain generated classes that end in the suffix
--keepnames class **_GsonTypeAdapter
+If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro).
 
-# Prevent obfuscation of types which use @GenerateTypeAdapter since the simple name
-# is used to reflectively look up the generated adapter.
--keepnames @com.ryanharter.auto.value.gson.GenerateTypeAdapter class *
+#### If using Android
+
+Android Gradle Plugin 3.3.0+ will automatically extract these rules. Note that for proguard support, you must use ProGuard 6.1.0beta2 or later.
+
+Set `android.proguard.enableRulesExtraction=false` and then copy the proguard rules to your project like described above.
+
+OR
+
+Upgrade proguard to 6.1.0beta2:
+
+```groovy
+buildscript {
+    configurations.all {
+        resolutionStrategy {
+            force 'net.sf.proguard:proguard-gradle:6.1.0beta2'
+        }
+    }
+}
 ```
+
+OR
+
+Enable R8 by setting `android.enableR8=true`.
 
 ## Download
 
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
-```groovy
-annotationProcessor 'com.ryanharter.auto.value:auto-value-gson:0.8.0'
-compile 'com.ryanharter.auto.value:auto-value-gson-runtime:0.8.0'
+```kotlin
+annotationProcessor("com.ryanharter.auto.value:auto-value-gson:0.8.0")
+implementation("com.ryanharter.auto.value:auto-value-gson-runtime:0.8.0")
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
-
-You will also need a normal runtime dependency for gson itself.
-
-```groovy
-compile 'com.google.code.gson:gson:2.8.0'
-```
 
 ## License
 
