@@ -43,13 +43,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -75,7 +75,19 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
 
-  public static class Property {
+  static class Property {
+
+    @Nullable
+    static Property create(Messager messager, String humanName, ExecutableElement element) {
+      Property property = new Property(humanName, element);
+      if (property.isTransient() && !property.nullable()) {
+        messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
+        return null;
+      } else {
+        return property;
+      }
+    }
+
     final String methodName;
     final String humanName;
     final ExecutableElement element;
@@ -84,7 +96,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final boolean nullable;
     final boolean isTransient;
 
-    Property(String humanName, ExecutableElement element) {
+    private Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = humanName;
       this.element = element;
@@ -213,7 +225,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .map(AutoValueGsonExtension::createGeneratedAnnotationSpec);
     TypeElement type = context.autoValueClass();
     boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
-    List<Property> properties = readProperties(context.properties());
+    List<Property> properties = Lists.newArrayList();
+    for (Map.Entry<String, ExecutableElement> entry : context.properties().entrySet()) {
+      Property property = Property.create(context.processingEnvironment().getMessager(), entry.getKey(), entry.getValue());
+      if (property == null) {
+        return null;
+      }
+      properties.add(property);
+    }
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
@@ -284,14 +303,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       .addMember("value", "$S", AutoValueGsonExtension.class.getName())
       .addMember("comments", "$S", GENERATED_COMMENTS)
       .build();
-  }
-
-  private List<Property> readProperties(Map<String, ExecutableElement> properties) {
-    List<Property> values = new LinkedList<>();
-    for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      values.add(new Property(entry.getKey(), entry.getValue()));
-    }
-    return values;
   }
 
   private ImmutableMap<TypeName, FieldSpec> createFields(List<Property> properties) {

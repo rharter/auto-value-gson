@@ -2126,7 +2126,7 @@ public class AutoValueGsonExtensionTest {
         + "@AutoValue public abstract class Test {\n"
         // a is not ignored, must be present in the JSON
         + "  public abstract String a();\n"
-        // e is nullable and ignored, so a default value is not required
+        // transientProperty is nullable and ignored, so a default value is not required
         + "  @Nullable @AutoTransient public abstract String transientProperty();\n"
         + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
         + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
@@ -2313,5 +2313,27 @@ public class AutoValueGsonExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test public void transientRequiredProperty_shouldFail() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import io.sweers.autovaluetransient.AutoTransient;\n"
+        + "import com.ryanharter.auto.value.gson.Nullable;\n"
+        + "@AutoValue public abstract class Test {\n"
+        + "  @AutoTransient public abstract String transientProperty();\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
+        + "  }\n"
+        + "}");
+
+    assertAbout(javaSources())
+        .that(Arrays.asList(nullable, source))
+        .processedWith(new AutoValueProcessor())
+        .failsToCompile()
+        .withErrorContaining("Required property cannot be transient!");
   }
 }
