@@ -36,6 +36,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
+import io.sweers.autovaluetransient.AutoTransient;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -81,6 +82,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final TypeName type;
     final ImmutableSet<String> annotations;
     final boolean nullable;
+    final boolean isTransient;
 
     Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
@@ -90,6 +92,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
       nullable = nullableAnnotation() != null;
+      isTransient = element.getAnnotation(AutoTransient.class) != null;
     }
 
     String serializedName() {
@@ -115,14 +118,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return serializedName != null;
     }
 
-    boolean shouldNotSerialize() {
-      Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore != null && ignore.value().ordinal() <= 1;
-    }
-
-    boolean shouldNotDeserialize() {
-      Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore != null && ignore.value().ordinal() >= 1;
+    boolean isTransient() {
+      return isTransient;
     }
 
     boolean nullable() {
@@ -304,7 +301,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     Set<TypeName> seenTypes = Sets.newHashSet();
     NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
-      if (property.shouldNotDeserialize() && property.shouldNotSerialize()) {
+      if (property.isTransient()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
@@ -501,7 +498,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
-      if (prop.shouldNotSerialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -593,7 +590,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("switch ($N)", name);
     for (Property prop : properties) {
-      if (prop.shouldNotDeserialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -618,7 +615,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
     for (Property prop : properties) {
-      if (prop.shouldNotDeserialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
