@@ -72,6 +72,13 @@ Note that the `types` is an array of the `Type` representations of the given typ
 `Foo` is parameterized as `Foo<String, Integer, Boolean>`, then the `Type` array passed in should be
 an array of `{String.class, Integer.class, Boolean.class}`.
 
+## Transient types
+
+To ignore certain properties from serialization, you can use the `@AutoTransient` annotation. This comes from a 
+shared transience annotations library and is an `api` dependency of the runtime artifact. You can annotate
+a property and it will be treated as `transient` for both serialization and deserialization. Note that
+this should only be applied to nullable properties.
+
 ## Factory
 
 Optionally, auto-value-gson can create a single [TypeAdapterFactory](https://google.github.io/gson/apidocs/com/google/gson/TypeAdapterFactory.html) so

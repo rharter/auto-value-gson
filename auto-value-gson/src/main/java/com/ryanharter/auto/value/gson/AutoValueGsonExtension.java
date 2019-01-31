@@ -36,19 +36,20 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
+import io.sweers.autotransient.AutoTransient;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -74,15 +75,28 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
 
-  public static class Property {
+  static class Property {
+
+    @Nullable
+    static Property create(Messager messager, String humanName, ExecutableElement element) {
+      Property property = new Property(humanName, element);
+      if (property.isTransient() && !property.nullable()) {
+        messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
+        return null;
+      } else {
+        return property;
+      }
+    }
+
     final String methodName;
     final String humanName;
     final ExecutableElement element;
     final TypeName type;
     final ImmutableSet<String> annotations;
     final boolean nullable;
+    final boolean isTransient;
 
-    Property(String humanName, ExecutableElement element) {
+    private Property(String humanName, ExecutableElement element) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = humanName;
       this.element = element;
@@ -90,6 +104,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       type = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
       nullable = nullableAnnotation() != null;
+      isTransient = element.getAnnotation(AutoTransient.class) != null;
     }
 
     String serializedName() {
@@ -115,14 +130,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return serializedName != null;
     }
 
-    boolean shouldNotSerialize() {
-      Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore != null && ignore.value().ordinal() <= 1;
-    }
-
-    boolean shouldNotDeserialize() {
-      Ignore ignore = element.getAnnotation(Ignore.class);
-      return ignore != null && ignore.value().ordinal() >= 1;
+    boolean isTransient() {
+      return isTransient;
     }
 
     boolean nullable() {
@@ -216,7 +225,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .map(AutoValueGsonExtension::createGeneratedAnnotationSpec);
     TypeElement type = context.autoValueClass();
     boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
-    List<Property> properties = readProperties(context.properties());
+    List<Property> properties = Lists.newArrayList();
+    for (Map.Entry<String, ExecutableElement> entry : context.properties().entrySet()) {
+      Property property = Property.create(context.processingEnvironment().getMessager(), entry.getKey(), entry.getValue());
+      if (property == null) {
+        return null;
+      }
+      properties.add(property);
+    }
 
     Map<String, TypeName> types = convertPropertiesToTypes(context.properties());
 
@@ -289,14 +305,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       .build();
   }
 
-  private List<Property> readProperties(Map<String, ExecutableElement> properties) {
-    List<Property> values = new LinkedList<>();
-    for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
-      values.add(new Property(entry.getKey(), entry.getValue()));
-    }
-    return values;
-  }
-
   private ImmutableMap<TypeName, FieldSpec> createFields(List<Property> properties) {
     ImmutableMap.Builder<TypeName, FieldSpec> fields = ImmutableMap.builder();
 
@@ -304,7 +312,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     Set<TypeName> seenTypes = Sets.newHashSet();
     NameAllocator nameAllocator = new NameAllocator();
     for (Property property : properties) {
-      if (property.shouldNotDeserialize() && property.shouldNotSerialize()) {
+      if (property.isTransient()) {
         continue;
       }
       TypeName type = property.type.isPrimitive() ? property.type.box() : property.type;
@@ -501,7 +509,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
-      if (prop.shouldNotSerialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -593,7 +601,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.beginControlFlow("switch ($N)", name);
     for (Property prop : properties) {
-      if (prop.shouldNotDeserialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (prop.hasSerializedNameAnnotation()) {
@@ -618,7 +626,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
     for (Property prop : properties) {
-      if (prop.shouldNotDeserialize()) {
+      if (prop.isTransient()) {
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
