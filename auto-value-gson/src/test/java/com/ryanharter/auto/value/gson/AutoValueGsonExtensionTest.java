@@ -2121,7 +2121,7 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.auto.value.AutoValue;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "import io.sweers.autovaluetransient.AutoTransient;\n"
+        + "import io.sweers.autotransient.AutoTransient;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "@AutoValue public abstract class Test {\n"
         // a is not ignored, must be present in the JSON
@@ -2321,7 +2321,7 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.auto.value.AutoValue;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
-        + "import io.sweers.autovaluetransient.AutoTransient;\n"
+        + "import io.sweers.autotransient.AutoTransient;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "@AutoValue public abstract class Test {\n"
         + "  @AutoTransient public abstract String transientProperty();\n"
