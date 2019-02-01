@@ -15,17 +15,95 @@
  */
 package com.ryanharter.auto.value.gson.internal;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.FieldNamingStrategy;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
-final class Util {
+public final class Util {
   static final Type[] EMPTY_TYPE_ARRAY = new Type[] {};
 
   private Util() {
+  }
+
+  public static Map<String, String> renameFields(Class<?> targetClass,
+      List<String> names,
+      FieldNamingStrategy fieldNamingStrategy) {
+    Map<String, String> renamedFields = new LinkedHashMap<>();
+    for (String fieldName : names) {
+      if (fieldNamingStrategy instanceof FieldNamingPolicy) {
+        switch ((FieldNamingPolicy) fieldNamingStrategy) {
+          case UPPER_CAMEL_CASE:
+            renamedFields.put(fieldName, upperCaseFirstLetter(fieldName));
+            break;
+          case UPPER_CAMEL_CASE_WITH_SPACES:
+            renamedFields.put(fieldName, upperCaseFirstLetter(separateCamelCase(fieldName, " ")));
+            break;
+          case LOWER_CASE_WITH_UNDERSCORES:
+            renamedFields.put(fieldName, separateCamelCase(fieldName, "_").toLowerCase(Locale.ENGLISH));
+            break;
+          case LOWER_CASE_WITH_DASHES:
+            renamedFields.put(fieldName, separateCamelCase(fieldName, "-").toLowerCase(Locale.ENGLISH));
+            break;
+          case LOWER_CASE_WITH_DOTS:
+            renamedFields.put(fieldName, separateCamelCase(fieldName, ".").toLowerCase(Locale.ENGLISH));
+            break;
+          default:
+            renamedFields.put(fieldName, fieldName);
+        }
+      } else {
+        try {
+          renamedFields.put(fieldName, fieldNamingStrategy.translateName(targetClass.getDeclaredField(fieldName)));
+        } catch (NoSuchFieldException E) {
+          renamedFields.put(fieldName, fieldName);
+        }
+      }
+    }
+    return renamedFields;
+  }
+  private static String separateCamelCase(String name, String separator) {
+    StringBuilder translation = new StringBuilder();
+    for (int i = 0, length = name.length(); i < length; i++) {
+      char character = name.charAt(i);
+      if (Character.isUpperCase(character) && translation.length() != 0) {
+        translation.append(separator);
+      }
+      translation.append(character);
+    }
+    return translation.toString();
+  }
+
+  private static String modifyString(char firstCharacter, String srcString,
+      int indexOfSubstring) {
+    return (indexOfSubstring < srcString.length()) ? firstCharacter + srcString.substring(indexOfSubstring) : String.valueOf(firstCharacter);
+  }
+
+  private static String upperCaseFirstLetter(String name) {
+    StringBuilder fieldNameBuilder = new StringBuilder();
+    int index = 0;
+    char firstCharacter = name.charAt(index);
+    int length = name.length();
+    while (index < length - 1) {
+      if (Character.isLetter(firstCharacter)) {
+        break;
+      }
+      fieldNameBuilder.append(firstCharacter);
+      firstCharacter = name.charAt(++index);
+    }
+    if (!Character.isUpperCase(firstCharacter)) {
+      String modifiedTarget = modifyString(Character.toUpperCase(firstCharacter), name, ++index);
+      return fieldNameBuilder.append(modifiedTarget).toString();
+    } else {
+      return name;
+    }
   }
 
   /**
