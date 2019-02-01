@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
 import javax.tools.JavaFileObject;
@@ -9,6 +10,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.compile.CompilationSubject.compilations;
+import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
@@ -485,6 +489,48 @@ public class AutoValueGsonExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test public void privateMethod() {
+    // Private methods exclude them from AVGson consideration
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.ryanharter.auto.value.gson.Nullable;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import java.util.Map;\n"
+        + "import java.util.Set;\n"
+        + "@AutoValue abstract class Test {\n"
+        + "  private static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        // Reference type
+        + "public abstract String a();\n"
+        // Array type
+        + "public abstract int[] b();\n"
+        // Primitive type
+        + "public abstract int c();\n"
+        // Parametrized type, multiple parameters
+        + "public abstract Map<String, Number> e();\n"
+        // Parametrized type, single parameter
+        + "public abstract Set<? extends String> f();\n"
+        // Nested parameterized type
+        + "public abstract Map<String, Set<? super String>> g();\n"
+        // Nullable type
+        + "@Nullable abstract String i();\n"
+        + "}\n"
+    );
+
+    Compilation compilation = javac()
+        .withProcessors(new AutoValueProcessor())
+        .compile(nullable, source);
+    assertAbout(compilations())
+        .that(compilation)
+        .succeeded();
+
+    assertThat(compilation.generatedSourceFiles()).hasSize(1);
+    assertThat(compilation.generatedSourceFiles().get(0).getName()).endsWith("AutoValue_Test.java");
   }
 
   @Test public void simpleNoEmpty() {
