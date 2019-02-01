@@ -45,6 +45,17 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
             + "  }\n"
             + "  abstract String getName();\n"
             + "}");
+    JavaFileObject publicInOtherPackage = JavaFileObjects.forSourceString("test2.PublicInOtherPackage", ""
+            + "package test2;\n"
+            + "import com.google.auto.value.AutoValue;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.Gson;\n"
+            + "@AutoValue public abstract class PublicInOtherPackage {\n"
+            + "  public static TypeAdapter<PublicInOtherPackage> typeAdapter(Gson gson) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  public abstract String getName();\n"
+            + "}");
     // This is generated into a different package and not visible to the factory
     JavaFileObject notVisibleClass = JavaFileObjects.forSourceString("test2.NotVisibleClass", ""
         + "package test2;\n"
@@ -91,13 +102,14 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "    return new AutoValueGson_MyAdapterFactory();\n"
         + "  }\n"
         + "}");
-    JavaFileObject expected = JavaFileObjects.forSourceString("test.AutoValueGson_MyAdapterFactory", ""
-        + "package test;\n"
+    JavaFileObject expected = JavaFileObjects.forSourceString("test.AutoValueGson_MyAdapterFactory", "package test;\n"
+        + "\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
         + "import com.google.gson.reflect.TypeToken;\n"
         + "import java.lang.Override;\n"
         + "import java.lang.SuppressWarnings;\n"
+        + "import test2.PublicInOtherPackage;\n"
         + "\n"
         + "public final class AutoValueGson_MyAdapterFactory extends MyAdapterFactory {\n"
         + "  @Override\n"
@@ -110,6 +122,8 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "      return (TypeAdapter<T>) Baz.jsonAdapter(gson);\n"
         + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
+        + "    } else if (PublicInOtherPackage.class.isAssignableFrom(rawType)) {\n"
+        + "      return (TypeAdapter<T>) PublicInOtherPackage.typeAdapter(gson);\n"
         + "    } else {\n"
         + "      return null;\n"
         + "    }\n"
@@ -117,7 +131,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "}");
 
     assertAbout(javaSources())
-        .that(ImmutableSet.of(fooSource, barSource, bazSource, notVisibleClass, notVisibleMethod, privateMethod, factorySource))
+        .that(ImmutableSet.of(fooSource, barSource, bazSource, publicInOtherPackage, notVisibleClass, notVisibleMethod, privateMethod, factorySource))
         .processedWith(new AutoValueGsonAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
