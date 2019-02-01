@@ -50,55 +50,55 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "@AutoValue public abstract class Test {\n"
-        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "@AutoValue abstract class Test {\n"
+        + "  static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
         + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
         + "  }\n"
         // Reference type
-        + "public abstract String a();\n"
+        + "abstract String a();\n"
         // Array type
-        + "public abstract int[] b();\n"
+        + "abstract int[] b();\n"
         // Primitive type
-        + "public abstract int c();\n"
+        + "abstract int c();\n"
         // SerializedName
-        + "@SerializedName(\"_D\") public abstract String d();\n"
+        + "@SerializedName(\"_D\") abstract String d();\n"
         // Nullable type
         + "@Nullable abstract String e();\n"
         // Parametrized type, multiple parameters
-        + "public abstract ImmutableMap<String, Number> f();\n"
+        + "abstract ImmutableMap<String, Number> f();\n"
         // Parametrized type, single parameter
-        + "public abstract Set<String> g();\n"
+        + "abstract Set<String> g();\n"
         // Nested parameterized type
-        + "public abstract Map<String, Set<String>> h();\n"
+        + "abstract Map<String, Set<String>> h();\n"
         // SerializedName with alternate
-        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract String i();\n"
+        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) abstract String i();\n"
         // Nullable collection type
-        + "@Nullable public abstract List<? extends String> j();\n"
+        + "@Nullable abstract List<? extends String> j();\n"
         // Deeply nested parameterized type
-        + "public abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n" +
-        "  @AutoValue.Builder public static abstract class Builder {\n" +
-        "    public abstract Builder a(String a);\n" +
-        "    public abstract Builder b(int[] b);\n" +
-        "    public abstract Builder c(int c);\n" +
-        "    public abstract Builder d(String d);\n" +
-        "    public abstract Builder e(String e);\n" +
-        "    public abstract Builder f(ImmutableMap<String, Number> f);\n" +
-        "    public abstract Builder g(Set<String> g);\n" +
-        "    public abstract Builder h(Map<String, Set<String>> h);\n" +
-        "    public abstract Builder i(String i);\n" +
-        "    public abstract Builder j(List<? extends String> j);\n" +
-        "    public abstract Builder o(Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o);\n" +
-        "    public abstract Test build();\n" +
+        + "abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n" +
+        "  @AutoValue.Builder static abstract class Builder {\n" +
+        "    abstract Builder a(String a);\n" +
+        "    abstract Builder b(int[] b);\n" +
+        "    abstract Builder c(int c);\n" +
+        "    abstract Builder d(String d);\n" +
+        "    abstract Builder e(String e);\n" +
+        "    abstract Builder f(ImmutableMap<String, Number> f);\n" +
+        "    abstract Builder g(Set<String> g);\n" +
+        "    abstract Builder h(Map<String, Set<String>> h);\n" +
+        "    abstract Builder i(String i);\n" +
+        "    abstract Builder j(List<? extends String> j);\n" +
+        "    abstract Builder o(Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o);\n" +
+        "    abstract Test build();\n" +
         "  }\n" +
-        "  public static class TestTypeAdapter extends TypeAdapter<String> {\n" +
+        "  static class TestTypeAdapter extends TypeAdapter<String> {\n" +
         "    @Override public void write(JsonWriter out, String value) throws IOException {}\n" +
         "    @Override public String read(JsonReader in) throws IOException { return null; }\n" +
         "  }\n" +
-        "  public static class TestListTypeAdapter extends TypeAdapter<List<String>> {\n" +
+        "  static class TestListTypeAdapter extends TypeAdapter<List<String>> {\n" +
         "    @Override public void write(JsonWriter out, List<String> value) throws IOException {}\n" +
         "    @Override public List<String> read(JsonReader in) throws IOException { return null; }\n" +
         "  }\n" +
-        "  public static class TestTypeAdapterFactory implements TypeAdapterFactory {\n" +
+        "  static class TestTypeAdapterFactory implements TypeAdapterFactory {\n" +
         "    @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) { return null; }\n" +
         "  }\n"
         + "}\n"
