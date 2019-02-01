@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.gson;
 
+import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.AutoValueExtension;
@@ -40,6 +41,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
+import static com.google.auto.common.MoreElements.getPackage;
+import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -81,7 +84,8 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       return false;
     }
     Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
-    List<Element> elements = autoValueElements.stream()
+    List<TypeElement> elements = autoValueElements.stream()
+        .map(e -> (TypeElement) e)
         .filter(e -> extension.applicable(new LimitedContext(processingEnv, (TypeElement) e)))
         .sorted((o1, o2) -> {
           final String o1Name = classNameOf((TypeElement)o1, ".");
@@ -121,8 +125,43 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       }
       String adapterName = classNameOf(type, "_");
       String qualifiedName = classNameOf(type, ".");
-      String packageName = packageNameOf(type);
-      TypeSpec typeAdapterFactory = createTypeAdapterFactory(type, elements, packageName,
+      PackageElement packageElement = packageElementOf(type);
+      String packageName = packageElement.getQualifiedName().toString();
+      List<TypeElement> applicableElements = elements.stream()
+          .filter(e -> {
+            Visibility typeVisibility = Visibility.ofElement(e);
+            switch (typeVisibility) {
+              case PRIVATE:
+                return false;
+              case DEFAULT:
+              case PROTECTED:
+                if (!getPackage(e).equals(packageElement)) {
+                  return false;
+                }
+                break;
+            }
+            // If we got here, the class is visible. Now check the typeAdapter method
+            ExecutableElement adapterMethod = getTypeAdapterMethod(e);
+            if (adapterMethod == null) {
+              return false;
+            }
+            Visibility methodVisibility = Visibility.ofElement(adapterMethod);
+            switch (methodVisibility) {
+              case PRIVATE:
+                return false;
+              case DEFAULT:
+              case PROTECTED:
+                if (!getPackage(adapterMethod).equals(packageElement)) {
+                  return false;
+                }
+                break;
+            }
+            return true;
+          })
+          .collect(toList());
+
+
+      TypeSpec typeAdapterFactory = createTypeAdapterFactory(type, applicableElements, packageName,
               adapterName, qualifiedName);
       JavaFile file = JavaFile.builder(packageName, typeAdapterFactory).build();
       try {
@@ -138,7 +177,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
   private TypeSpec createTypeAdapterFactory(
       TypeElement sourceElement,
-      List<Element> elements,
+      List<TypeElement> elements,
       String packageName,
       String adapterName,
       String qualifiedName) {
@@ -165,14 +204,14 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .returns(result)
         .addStatement("Class<?> rawType = $N.getRawType()", type);
 
-    List<Pair<Element, ExecutableElement>> properties = elements.stream()
+    List<Pair<TypeElement, ExecutableElement>> properties = elements.stream()
         .peek(factory::addOriginatingElement)
         .map(e -> Pair.create(e, getTypeAdapterMethod(e)))
         .filter(entry -> entry.second != null)
         .collect(Collectors.toList());
 
     for (int i = 0, elementsSize = properties.size(); i < elementsSize; i++) {
-      Pair<Element, ExecutableElement> pair = properties.get(i);
+      Pair<TypeElement, ExecutableElement> pair = properties.get(i);
       Element element = pair.first;
       TypeName elementType = rawType(element);
       if (i == 0) {
@@ -213,7 +252,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     return type;
   }
 
-  private ExecutableElement getTypeAdapterMethod(Element element) {
+  private ExecutableElement getTypeAdapterMethod(TypeElement element) {
     TypeName type = TypeName.get(element.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName
         .get(ClassName.get(TypeAdapter.class), type);
@@ -300,13 +339,15 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
    * (unnamed) package then the name is the empty string.
    */
   private static String packageNameOf(TypeElement type) {
-    while (true) {
-      Element enclosing = type.getEnclosingElement();
-      if (enclosing instanceof PackageElement) {
-        return ((PackageElement) enclosing).getQualifiedName().toString();
-      }
-      type = (TypeElement) enclosing;
-    }
+    return packageElementOf(type).getQualifiedName().toString();
+  }
+
+  /**
+   * Returns the package element that the given type is in. If the type is in the default
+   * (unnamed) package then the name is the empty string.
+   */
+  private static PackageElement packageElementOf(TypeElement type) {
+    return getPackage(type);
   }
 
   private static class LimitedContext implements AutoValueExtension.Context {

@@ -45,6 +45,42 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
             + "  }\n"
             + "  abstract String getName();\n"
             + "}");
+    // This is generated into a different package and not visible to the factory
+    JavaFileObject notVisibleClass = JavaFileObjects.forSourceString("test2.NotVisibleClass", ""
+        + "package test2;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "@AutoValue abstract class NotVisibleClass {\n"
+        + "  public static TypeAdapter<NotVisibleClass> typeAdapter(Gson gson) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
+    // This adapter method generated into a different package and not visible to the factory
+    JavaFileObject notVisibleMethod = JavaFileObjects.forSourceString("test2.NotVisibleMethod", ""
+        + "package test2;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "@AutoValue public abstract class NotVisibleMethod {\n"
+        + "  static TypeAdapter<NotVisibleMethod> typeAdapter(Gson gson) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
+    // This adapter method is private and thus not applicable
+    JavaFileObject privateMethod = JavaFileObjects.forSourceString("test.PrivateMethod", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "@AutoValue public abstract class PrivateMethod {\n"
+        + "  private static TypeAdapter<PrivateMethod> typeAdapter(Gson gson) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
     JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
         + "package test;\n"
         + "import com.google.gson.TypeAdapterFactory;\n"
@@ -81,7 +117,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "}");
 
     assertAbout(javaSources())
-        .that(ImmutableSet.of(fooSource, barSource, bazSource, factorySource))
+        .that(ImmutableSet.of(fooSource, barSource, bazSource, notVisibleClass, notVisibleMethod, privateMethod, factorySource))
         .processedWith(new AutoValueGsonAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
@@ -427,5 +463,70 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
       .withErrorContaining("none of them contain a requisite public static "
           + "TypeAdapter-returning signature method to opt in to being included in "
           + "@GsonTypeAdapterFactory-generated factories");
+  }
+
+  @Test public void packagePrivateEverything() {
+    JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "@AutoValue abstract class Foo {\n"
+        + "  static TypeAdapter<Foo> typeAdapter(Gson moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  abstract String getName();\n"
+        + "  abstract boolean isAwesome();\n"
+        + "}");
+    JavaFileObject source2 = JavaFileObjects.forSourceString("test.Bar", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "@AutoValue abstract class Bar {\n"
+        + "  static TypeAdapter<Bar> typeAdapter(Gson moshi) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  abstract String getName();\n"
+        + "}");
+    JavaFileObject source5 = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
+        + "package test;\n"
+        + "import com.google.gson.TypeAdapterFactory;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;\n"
+        + "@GsonTypeAdapterFactory\n"
+        + "abstract class MyAdapterFactory implements TypeAdapterFactory {\n"
+        + "  static TypeAdapterFactory create() {\n"
+        + "    return new AutoValueGson_MyAdapterFactory();\n"
+        + "  }\n"
+        + "}");
+    JavaFileObject expected =
+        JavaFileObjects.forSourceString("test.AutoValueGson_MyAdapterFactory", "package test;\n"
+            + "\n"
+            + "import com.google.gson.Gson;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.reflect.TypeToken;\n"
+            + "import java.lang.Override;\n"
+            + "import java.lang.SuppressWarnings;\n"
+            + "\n"
+            + "public final class AutoValueGson_MyAdapterFactory extends MyAdapterFactory {\n"
+            + "  @Override\n"
+            + "  @SuppressWarnings(\"unchecked\")\n"
+            + "  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {\n"
+            + "    Class<?> rawType = type.getRawType();\n"
+            + "    if (Bar.class.isAssignableFrom(rawType)) {\n"
+            + "      return (TypeAdapter<T>) Bar.typeAdapter(gson);\n"
+            + "    } else if (Foo.class.isAssignableFrom(rawType)) {\n"
+            + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
+            + "    } else {\n"
+            + "      return null;\n"
+            + "    }\n"
+            + "  }\n"
+            + "}");
+    assertAbout(javaSources()).that(ImmutableSet.of(source1, source2, source5))
+        .processedWith(new AutoValueGsonAdapterFactoryProcessor())
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected);
   }
 }
