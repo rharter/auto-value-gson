@@ -506,19 +506,19 @@ public class AutoValueGsonExtensionTest {
         + "    return null;\n"
         + "  }\n"
         // Reference type
-        + "public abstract String a();\n"
+        + "  public abstract String a();\n"
         // Array type
-        + "public abstract int[] b();\n"
+        + "  public abstract int[] b();\n"
         // Primitive type
-        + "public abstract int c();\n"
+        + "  public abstract int c();\n"
         // Parametrized type, multiple parameters
-        + "public abstract Map<String, Number> e();\n"
+        + "  public abstract Map<String, Number> e();\n"
         // Parametrized type, single parameter
-        + "public abstract Set<? extends String> f();\n"
+        + "  public abstract Set<? extends String> f();\n"
         // Nested parameterized type
-        + "public abstract Map<String, Set<? super String>> g();\n"
+        + "  public abstract Map<String, Set<? super String>> g();\n"
         // Nullable type
-        + "@Nullable abstract String i();\n"
+        + "  @Nullable abstract String i();\n"
         + "}\n"
     );
 
