@@ -163,7 +163,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   @Override
   public boolean applicable(Context context) {
-    // check that the class contains a public static method returning a TypeAdapter
+    // check that the class contains a non-private static method returning a TypeAdapter
     TypeElement type = context.autoValueClass();
     TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
@@ -203,11 +203,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           return pTypeName.rawType.equals(argument);
         } else {
           messager.printMessage(Diagnostic.Kind.WARNING,
-              String.format("Found public static method returning TypeAdapter<%s> on %s class. "
+              String.format("Found static method returning TypeAdapter<%s> on %s class. "
                   + "Skipping GsonTypeAdapter generation.", argument, type));
         }
       } else {
-        messager.printMessage(Diagnostic.Kind.WARNING, "Found public static method returning "
+        messager.printMessage(Diagnostic.Kind.WARNING, "Found static method returning "
             + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
       }
       return false;

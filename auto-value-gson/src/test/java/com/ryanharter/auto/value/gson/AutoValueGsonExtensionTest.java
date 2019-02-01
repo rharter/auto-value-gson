@@ -1250,7 +1250,7 @@ public class AutoValueGsonExtensionTest {
         .that(ImmutableSet.of(source1, source2))
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning TypeAdapter<test.Bar> on "
+        .withWarningContaining("Found static method returning TypeAdapter<test.Bar> on "
             + "test.Foo class. Skipping GsonTypeAdapter generation.");
   }
 
@@ -1273,7 +1273,7 @@ public class AutoValueGsonExtensionTest {
         .that(source1)
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
-        .withWarningContaining("Found public static method returning TypeAdapter with no type "
+        .withWarningContaining("Found static method returning TypeAdapter with no type "
             + "arguments, skipping GsonTypeAdapter generation.");
   }
 
