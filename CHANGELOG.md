@@ -2,6 +2,7 @@
 
 ## Version 1.0.0 (2019-02-08)
 
+* Adds support for wildcard types.
 * Respect FieldNamingStrategy when set on the Gson builder (#124)
 * Use correct "Generated"-annotation based on JDK version. (#186)
 * Add support for incremental annotaiton processing. (#188, #189)
