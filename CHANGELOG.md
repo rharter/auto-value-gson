@@ -1,5 +1,17 @@
 # Change Log
 
+## Version 1.0.0 (2019-02-08)
+
+* Respect FieldNamingStrategy when set on the Gson builder (#124)
+* Use correct "Generated"-annotation based on JDK version. (#186)
+* Add support for incremental annotaiton processing. (#188, #189)
+* Allow no-arg static typeAdapter() methods (#195)
+* Remove support for @GsonTypeAdapter, empty collection defaults, and mutable adapters (#201)
+* Refactor annotations artifact to runtime artifact for consistency with other libraries (#202)
+* Embed Proguard rules (#203)
+* Switch transient annotation to shared AutoTransient library (#207)
+* Add support for non-public typeAdapter() methods (#210)
+
 ## Version 0.8.0 (2018-05-31)
 
 * Fixes an issue causing TypeAdapters to be generated non-deterministically.
