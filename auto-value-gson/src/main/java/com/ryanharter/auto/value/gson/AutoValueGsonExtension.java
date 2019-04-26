@@ -219,8 +219,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   @Override
   public String generateClass(Context context, String className, String classToExtend, boolean isFinal) {
     ProcessingEnvironment env = context.processingEnvironment();
-    Optional<AnnotationSpec> generatedAnnotationSpec = GeneratedAnnotations.generatedAnnotation(env.getElementUtils())
-        .map(AutoValueGsonExtension::createGeneratedAnnotationSpec);
+    Optional<AnnotationSpec> generatedAnnotationSpec =
+        GeneratedAnnotations.generatedAnnotation(env.getElementUtils(), env.getSourceVersion())
+            .map(AutoValueGsonExtension::createGeneratedAnnotationSpec);
     TypeElement type = context.autoValueClass();
     boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     List<Property> properties = Lists.newArrayList();
@@ -296,7 +297,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return JavaFile.builder(context.packageName(), subclass.build()).build().toString();
     }
   }
-  
+
   private static AnnotationSpec createGeneratedAnnotationSpec(TypeElement generatedAnnotationTypeElement) {
     return AnnotationSpec.builder(ClassName.get(generatedAnnotationTypeElement))
       .addMember("value", "$S", AutoValueGsonExtension.class.getName())
