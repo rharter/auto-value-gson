@@ -17,6 +17,7 @@ import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.COLLECTIONS_DEFAULT_TO_EMPTY;
 
 @RunWith(JUnit4.class)
 public class AutoValueGsonExtensionTest {
@@ -130,6 +131,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.String;\n"
         + "import java.lang.SuppressWarnings;\n"
         + "import java.util.ArrayList;\n"
+        + "import java.util.Collections;\n"
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
@@ -340,13 +342,13 @@ public class AutoValueGsonExtensionTest {
         + "      int c = 0;\n"
         + "      String d = null;\n"
         + "      String e = null;\n"
-        + "      ImmutableMap<String, Number> f = null;\n"
-        + "      Set<String> g = null;\n"
-        + "      Map<String, Set<String>> h = null;\n"
+        + "      ImmutableMap<String, Number> f = ImmutableMap.of();\n"
+        + "      Set<String> g = Collections.emptySet();\n"
+        + "      Map<String, Set<String>> h = Collections.emptyMap();\n"
         + "      String i = null;\n"
         + "      List<? extends String> j = null;\n"
         + "      Map<String, Map<String, Map<String, Map<String, Map<String, ? extends "
-        + "String>>>>> o = null;\n"
+        + "String>>>>> o = Collections.emptyMap();\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
         + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
@@ -488,6 +490,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()
@@ -1498,6 +1501,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.SuppressWarnings;\n"
         + "import java.lang.reflect.Type;\n"
         + "import java.util.ArrayList;\n"
+        + "import java.util.Collections;\n"
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import javax.annotation.Generated;\n"
@@ -1623,8 +1627,8 @@ public class AutoValueGsonExtensionTest {
         + "      C c = null;\n"
         + "      A a = null;\n"
         + "      B b = null;\n"
-        + "      List<A> list = null;\n"
-        + "      Map<String, List<C>> map = null;\n"
+        + "      List<A> list = Collections.emptyList();\n"
+        + "      Map<String, List<C>> map = Collections.emptyMap();\n"
         + "      String d = null;\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
@@ -1701,6 +1705,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
+        .withCompilerOptions("-A" + COLLECTIONS_DEFAULT_TO_EMPTY + "=true")
         .processedWith(new AutoValueProcessor())
         .compilesWithoutError()
         .and()

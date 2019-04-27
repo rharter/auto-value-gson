@@ -39,6 +39,7 @@ import io.sweers.autotransient.AutoTransient;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,6 +73,9 @@ import static javax.lang.model.element.Modifier.VOLATILE;
 public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+
+  /** Compiler flag to indicate that collections/maps should default to their empty forms. Default is to default to null. */
+  static final String COLLECTIONS_DEFAULT_TO_EMPTY = "autovaluegson.defaultCollectionsToEmpty";
 
   static class Property {
 
@@ -254,8 +258,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         : classNameClass.nestedClass("GsonTypeAdapter");
     ClassName finalSuperClass = generateExternalAdapter ? classNameClass : superclassRawType;
     TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, adapterClassName, finalSuperClass,
-            properties, params);
-    
+            properties, params, context.processingEnvironment());
+
     if (generateExternalAdapter) {
       try {
         TypeSpec.Builder builder = typeAdapter.toBuilder();
@@ -402,7 +406,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       ClassName gsonTypeAdapterName,
       ClassName superClassType,
       List<Property> properties,
-      List<TypeVariableName> typeParams) {
+      List<TypeVariableName> typeParams,
+      ProcessingEnvironment processingEnv) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     TypeName autoValueTypeName = autoValueClassName;
     if (!typeParams.isEmpty()) {
@@ -447,7 +452,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
         .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
-            jsonAdapter, typeParams));
+            jsonAdapter, typeParams, processingEnv));
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
@@ -551,7 +556,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       List<Property> properties,
       ImmutableMap<TypeName, FieldSpec> adapters,
       ClassName jsonAdapter,
-      List<TypeVariableName> typeParams) {
+      List<TypeVariableName> typeParams,
+      ProcessingEnvironment processingEnv) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
         .addAnnotation(Override.class)
@@ -572,6 +578,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
+    boolean collectionsDefault = Boolean.parseBoolean(processingEnv.getOptions()
+        .getOrDefault(COLLECTIONS_DEFAULT_TO_EMPTY, "false"));
+
     // add the properties
     Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
     for (Property prop : properties) {
@@ -580,7 +589,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       fields.put(prop, field);
 
 
-      CodeBlock defaultValue = getDefaultValue(prop, field);
+      CodeBlock defaultValue = getDefaultValue(prop, field, collectionsDefault);
       readMethod.addCode("$[$T $N = ", field.type, field);
       if (defaultValue != null) {
         readMethod.addCode(defaultValue);
@@ -672,7 +681,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   /** Returns a default value for initializing well-known types, or else {@code null}. */
-  private CodeBlock getDefaultValue(Property prop, FieldSpec field) {
+  private CodeBlock getDefaultValue(Property prop, FieldSpec field, boolean collectionsDefaultToEmpty) {
     if (field.type.isPrimitive()) {
       String defaultValue = getDefaultPrimitiveValue(field.type);
       if (defaultValue != null) {
@@ -692,7 +701,26 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (typeElement == null) {
       return null;
     }
-
+    if (collectionsDefaultToEmpty) {
+      try {
+        Class<?> clazz = Class.forName(typeElement.getQualifiedName().toString());
+        if (clazz.isAssignableFrom(List.class)) {
+          return CodeBlock.of("$T.emptyList()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(Map.class)) {
+          return CodeBlock.of("$T.emptyMap()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(Set.class)) {
+          return CodeBlock.of("$T.emptySet()", TypeName.get(Collections.class));
+        } else if (clazz.isAssignableFrom(ImmutableList.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableList.class));
+        } else if (clazz.isAssignableFrom(ImmutableMap.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableMap.class));
+        } else if (clazz.isAssignableFrom(ImmutableSet.class)) {
+          return CodeBlock.of("$T.of()", TypeName.get(ImmutableSet.class));
+        }
+      } catch (ClassNotFoundException e) {
+        return null;
+      }
+    }
     return null;
   }
 

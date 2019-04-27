@@ -111,6 +111,12 @@ Gson gson = new GsonBuilder()
     .create();
 ```
 
+## Compiler options
+
+`autovaluegson.defaultCollectionsToEmpty` - If specified, maps/collections will
+default to their empty types (e.g. `List` -> `Collections.emptyList()`). Value
+is `true` or `false`.
+
 ## @GenerateTypeAdapter
 
 There is an annotation in the `auto-value-gson-runtime` artifact called `@GenerateTypeAdapter`. This annotation
