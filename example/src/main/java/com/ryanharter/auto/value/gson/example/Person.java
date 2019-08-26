@@ -3,6 +3,7 @@ package com.ryanharter.auto.value.gson.example;
 import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
+import com.ryanharter.auto.value.gson.GsonTypeAdapter;
 import java.util.Date;
 
 @AutoValue
@@ -13,6 +14,7 @@ public abstract class Person {
 
     public abstract int age();
 
+    @GsonTypeAdapter(BirthdateAdapter.class)
     public abstract Date birthdate();
 
     @Nullable
