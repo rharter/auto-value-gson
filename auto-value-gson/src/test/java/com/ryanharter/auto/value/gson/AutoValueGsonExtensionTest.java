@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
@@ -488,7 +489,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -920,7 +921,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1054,7 +1055,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1187,7 +1188,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
             .that(source)
-            .processedWith(new AutoValueProcessor())
+            .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
             .compilesWithoutError()
             .and()
             .generatesSources(expected);
@@ -1268,7 +1269,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningCount(2)
         .and()
@@ -1297,7 +1298,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(ImmutableSet.of(source1, source2))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning TypeAdapter<test.Bar> on "
             + "test.Foo class. Skipping GsonTypeAdapter generation.");
@@ -1320,7 +1321,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning TypeAdapter with no type "
             + "arguments, skipping GsonTypeAdapter generation.");
@@ -1343,7 +1344,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningCount(2);
   }
@@ -1455,7 +1456,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
       .that(Arrays.asList(nullable, source))
-      .processedWith(new AutoValueProcessor())
+      .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
       .compilesWithoutError()
       .and()
       .generatesSources(expected);
@@ -1701,7 +1702,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1821,7 +1822,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1844,7 +1845,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .failsToCompile()
         .withErrorContaining("Required property cannot be transient!");
   }
