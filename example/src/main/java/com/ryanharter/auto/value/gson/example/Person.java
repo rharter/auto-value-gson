@@ -19,7 +19,9 @@ public abstract class Person {
     public abstract Address address();
 
     public static Builder builder() {
-        return new AutoValue_Person.Builder();
+        return new AutoValue_Person.Builder()
+            .name("Jane Doe")
+            .gender(0);
     }
 
     public static TypeAdapter<Person> typeAdapter(Gson gson) {
@@ -38,7 +40,15 @@ public abstract class Person {
 
         public abstract Builder address(Address address);
 
-        public abstract Person build();
+        public abstract Person autoBuild();
+
+        public Person build() {
+            Person person = autoBuild();
+            if (person.age() < 0) {
+                throw new IllegalArgumentException("age cannot be negative");
+            }
+            return person;
+        }
     }
 
     public @interface Nullable {}
