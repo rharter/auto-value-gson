@@ -440,13 +440,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         superClassType);
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
-    MethodSpec readMethod = Optional.ofNullable(builderContext)
-        .map(builderCtx ->
-            createReadMethodWithBuilder(className, autoValueTypeName, properties, adapters,
-                jsonAdapter, typeParams, builderCtx, processingEnvironment)
-        ).orElseGet(() ->
-            createReadMethod(className, autoValueTypeName, properties, adapters,
-                jsonAdapter, typeParams));
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, FINAL)
@@ -457,7 +450,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
-        .addMethod(readMethod);
+        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
+            jsonAdapter, typeParams, builderContext, processingEnvironment));
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
@@ -585,127 +579,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       List<Property> properties,
       ImmutableMap<TypeName, FieldSpec> adapters,
       ClassName jsonAdapter,
-      List<TypeVariableName> typeParams) {
-    ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
-    MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
-        .addAnnotation(Override.class)
-        .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
-            .addMember("value", "\"unchecked\"")
-            .build())
-        .addModifiers(PUBLIC)
-        .returns(autoValueClassName)
-        .addParameter(jsonReader)
-        .addException(IOException.class);
-
-    ClassName token = ClassName.get(JsonToken.NULL.getDeclaringClass());
-
-    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
-    readMethod.addStatement("$N.nextNull()", jsonReader);
-    readMethod.addStatement("return null");
-    readMethod.endControlFlow();
-
-    readMethod.addStatement("$N.beginObject()", jsonReader);
-
-    // add the properties
-    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
-    for (Property prop : properties) {
-      TypeName fieldType = prop.type;
-      FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
-      fields.put(prop, field);
-
-
-      CodeBlock defaultValue = getDefaultValue(prop, field);
-      readMethod.addCode("$[$T $N = ", field.type, field);
-      if (defaultValue != null) {
-        readMethod.addCode(defaultValue);
-      } else {
-        readMethod.addCode("$L", "null");
-      }
-      readMethod.addCode(";\n$]");
-    }
-
-    readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
-
-    FieldSpec name = FieldSpec.builder(String.class, "_name").build();
-    readMethod.addStatement("$T $N = $N.nextName()", name.type, name, jsonReader);
-
-    readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
-    readMethod.addStatement("$N.nextNull()", jsonReader);
-    readMethod.addStatement("continue");
-    readMethod.endControlFlow();
-
-    readMethod.beginControlFlow("switch ($N)", name);
-    for (Property prop : properties) {
-      if (prop.isTransient()) {
-        continue;
-      }
-      if (prop.hasSerializedNameAnnotation()) {
-        FieldSpec field = fields.get(prop);
-        for (String alternate : prop.serializedNameAlternate()) {
-          readMethod.addCode("case $S:\n", alternate);
-        }
-        readMethod.beginControlFlow("case $S:", prop.serializedName());
-        FieldSpec adapterField = adapters.get(prop.type);
-        CodeBlock.Builder block = CodeBlock.builder();
-        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
-        readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
-        readMethod.addStatement("break");
-        readMethod.endControlFlow();
-      }
-    }
-
-    // skip value if field is not serialized...
-    readMethod.beginControlFlow("default:");
-    for (Property prop : properties) {
-      if (prop.isTransient()) {
-        continue;
-      }
-      if (!prop.hasSerializedNameAnnotation()) {
-        FieldSpec field = fields.get(prop);
-        readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
-        FieldSpec adapterField = adapters.get(prop.type);
-        CodeBlock.Builder block = CodeBlock.builder();
-        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
-        readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
-        readMethod.addStatement("continue");
-        readMethod.endControlFlow();
-      }
-    }
-    readMethod.addStatement("$N.skipValue()", jsonReader);
-    readMethod.endControlFlow(); // default case
-
-    readMethod.endControlFlow(); // switch
-    readMethod.endControlFlow(); // while
-
-    readMethod.addStatement("$N.endObject()", jsonReader);
-
-    StringBuilder format = new StringBuilder("return new ");
-    format.append(className.simpleName().replaceAll("\\$", ""));
-    if (autoValueClassName instanceof ParameterizedTypeName) {
-      format.append("<>");
-    }
-    format.append("(");
-    Iterator<FieldSpec> iterator = fields.values().iterator();
-    while (iterator.hasNext()) {
-      iterator.next();
-      format.append("$N");
-      if (iterator.hasNext()) format.append(", ");
-    }
-    format.append(")");
-    readMethod.addStatement(format.toString(), fields.values().toArray());
-
-    return readMethod.build();
-  }
-
-  private MethodSpec createReadMethodWithBuilder(ClassName className,
-      TypeName autoValueClassName,
-      List<Property> properties,
-      ImmutableMap<TypeName, FieldSpec> adapters,
-      ClassName jsonAdapter,
       List<TypeVariableName> typeParams,
-      BuilderContext builderContext,
+      @Nullable BuilderContext builderContext,
       ProcessingEnvironment processingEnvironment) {
     ParameterSpec jsonReader = ParameterSpec.builder(JsonReader.class, "jsonReader").build();
     MethodSpec.Builder readMethod = MethodSpec.methodBuilder("read")
@@ -725,54 +600,76 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
+    readMethod.addStatement("$N.beginObject()", jsonReader);
 
-    // Instantiate the AutoValue'd class builder
-    FieldSpec builder = FieldSpec.builder(ClassName.get(builderContext.builderType()), "builder")
-        .build();
+    // Will be empty if using a AutoValue builder
+    Map<Property, FieldSpec> fields = new LinkedHashMap<>(properties.size());
+    // Will be absent if not using AutoValue builder
+    Optional<FieldSpec> builderField = Optional.ofNullable(builderContext)
+        .map(ctx -> FieldSpec
+            .builder(ClassName.get(ctx.builderType()), "builder")
+            .build());
 
-    Set<ExecutableElement> builderMethods = builderContext.builderMethods();
+    if (builderField.isPresent()) {
+      Set<ExecutableElement> builderMethods = builderContext.builderMethods();
 
-    if (builderMethods.size() == 0) {
-      // If no builder method defined, instantiate directly.
-      readMethod.addStatement("$T $N = new $T.$L()", builder.type, builder, className,
-          builderContext.builderType().getSimpleName());
-    } else {
-      ExecutableElement builderMethod;
-      if (builderMethods.size() == 1) {
-        // If there is only 1, use it.
-        builderMethod = builderMethods.stream().findFirst().get();
+      if (builderMethods.size() == 0) {
+        // If no builder method defined, instantiate directly.
+        readMethod.addStatement("$T $N = new $T.$L()", builderField.get().type, builderField.get(),
+            className, builderContext.builderType().getSimpleName());
       } else {
-        // Otherwise, find the only builder method that is annotated.
-        Set<ExecutableElement> annotatedMethods = builderMethods.stream()
-            .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
-            .collect(Collectors.toSet());
-
-        if (annotatedMethods.size() == 0) {
-          processingEnvironment.getMessager()
-              .printMessage(
-                  Diagnostic.Kind.ERROR,
-                  "Too many builder methods in " + className.simpleName() + ". Annotate the "
-                      + "builder this TypeAdapter should use with @AutoValueGsonBuilder."
-              );
-          throw new IllegalStateException();
-        } else if (annotatedMethods.size() == 1) {
-          builderMethod = annotatedMethods.stream().findFirst().get();
+        ExecutableElement builderMethod;
+        if (builderMethods.size() == 1) {
+          // If there is only 1, use it.
+          builderMethod = builderMethods.stream().findFirst().get();
         } else {
-          processingEnvironment.getMessager()
-              .printMessage(
-                  Diagnostic.Kind.ERROR,
-                  "Too many @AutoValueGsonBuilder annotations",
-                  annotatedMethods.stream().findFirst().get()
-              );
-          throw new IllegalStateException();
-        }
-      }
+          // Otherwise, find the only builder method that is annotated.
+          Set<ExecutableElement> annotatedMethods = builderMethods.stream()
+              .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
+              .collect(Collectors.toSet());
 
-      readMethod.addStatement("$T $N = $T.$L", builder.type, builder, autoValueClassName, builderMethod);
+          if (annotatedMethods.size() == 0) {
+            processingEnvironment.getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Too many builder methods in " + className.simpleName() + ". Annotate the "
+                        + "builder this TypeAdapter should use with @AutoValueGsonBuilder."
+                );
+            throw new IllegalStateException();
+          } else if (annotatedMethods.size() == 1) {
+            builderMethod = annotatedMethods.stream().findFirst().get();
+          } else {
+            processingEnvironment.getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Too many @AutoValueGsonBuilder annotations",
+                    annotatedMethods.stream().findFirst().get()
+                );
+            throw new IllegalStateException();
+          }
+        }
+
+        readMethod.addStatement("$T $N = $T.$L", builderField.get().type, builderField.get(),
+            autoValueClassName, builderMethod);
+      }
+    } else {
+      // add the properties
+      for (Property prop : properties) {
+        TypeName fieldType = prop.type;
+        FieldSpec field = FieldSpec.builder(fieldType, prop.humanName).build();
+        fields.put(prop, field);
+
+        CodeBlock defaultValue = getDefaultValue(prop, field);
+        readMethod.addCode("$[$T $N = ", field.type, field);
+        if (defaultValue != null) {
+          readMethod.addCode(defaultValue);
+        } else {
+          readMethod.addCode("$L", "null");
+        }
+        readMethod.addCode(";\n$]");
+      }
     }
 
-    // begin reading object
-    readMethod.addStatement("$N.beginObject()", jsonReader);
     readMethod.beginControlFlow("while ($N.hasNext())", jsonReader);
 
     FieldSpec name = FieldSpec.builder(String.class, "_name").build();
@@ -788,8 +685,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (prop.isTransient()) {
         continue;
       }
-
-      // Add fields with serialized names
       if (prop.hasSerializedNameAnnotation()) {
         for (String alternate : prop.serializedNameAlternate()) {
           readMethod.addCode("case $S:\n", alternate);
@@ -798,8 +693,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         FieldSpec adapterField = adapters.get(prop.type);
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        addBuilderFieldSetting(block, prop, builder, jsonReader, builderContext, adapters);
         readMethod.addCode(block.build());
+        if (builderField.isPresent()) {
+          block = CodeBlock.builder();
+          addBuilderFieldSetting(block, prop, builderField.get(), jsonReader, builderContext, adapters);
+          readMethod.addCode(block.build());
+        } else {
+          readMethod.addStatement("$N = $N.read($N)", fields.get(prop), adapterField, jsonReader);
+        }
         readMethod.addStatement("break");
         readMethod.endControlFlow();
       }
@@ -811,14 +712,19 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (prop.isTransient()) {
         continue;
       }
-
       if (!prop.hasSerializedNameAnnotation()) {
         readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
         FieldSpec adapterField = adapters.get(prop.type);
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        addBuilderFieldSetting(block, prop, builder, jsonReader, builderContext, adapters);
         readMethod.addCode(block.build());
+        if (builderField.isPresent()) {
+          block = CodeBlock.builder();
+          addBuilderFieldSetting(block, prop, builderField.get(), jsonReader, builderContext, adapters);
+          readMethod.addCode(block.build());
+        } else {
+          readMethod.addStatement("$N = $N.read($N)", fields.get(prop), adapterField, jsonReader);
+        }
         readMethod.addStatement("continue");
         readMethod.endControlFlow();
       }
@@ -831,17 +737,25 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     readMethod.addStatement("$N.endObject()", jsonReader);
 
-    // find the build method to use
-    if (!builderContext.buildMethod().isPresent()) {
-      processingEnvironment.getMessager()
-          .printMessage(
-              Diagnostic.Kind.ERROR,
-              "Could not determine the build method. Make sure it is named \"build\".",
-              builderContext.builderType());
+    if (builderField.isPresent()) {
+      readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
+    } else {
+      StringBuilder format = new StringBuilder("return new ");
+      format.append(className.simpleName().replaceAll("\\$", ""));
+      if (autoValueClassName instanceof ParameterizedTypeName) {
+        format.append("<>");
+      }
+      format.append("(");
+      Iterator<FieldSpec> iterator = fields.values().iterator();
+      while (iterator.hasNext()) {
+        iterator.next();
+        format.append("$N");
+        if (iterator.hasNext())
+          format.append(", ");
+      }
+      format.append(")");
+      readMethod.addStatement(format.toString(), fields.values().toArray());
     }
-
-    builderContext.buildMethod()
-        .ifPresent(buildMethod -> readMethod.addStatement("return $N.$N()", builder, buildMethod.getSimpleName()));
 
     return readMethod.build();
   }
