@@ -34,6 +34,8 @@ public class PersonTest {
                 .birthdate(date)
                 .address(Address.create("street", "city"))
                 .build();
+
+        //language=json
         String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":23,\"birthdate\":\"" + birthdate + "\",\"address\":{\"street-name\":\"street\",\"city\":\"city\"}}";
 
         String toJson = gson.toJson(person, Person.class);
@@ -55,6 +57,7 @@ public class PersonTest {
             .registerTypeAdapterFactory(SampleAdapterFactory.create())
             .create();
 
+        //language=json
         String json = "{\"name\":\"Piasy\",\"gender\":1,\"age\":-1,\"birthdate\":\"2007-11-11\",\"address\":{\"street-name\":\"street\",\"city\":\"city\"}}";
         gson.fromJson(json, Person.class);
     }
@@ -66,6 +69,7 @@ public class PersonTest {
             .create();
 
         // "name" and "gender" are unspecified. Should default to "Jane Doe" and 23
+        //language=json
         String json = "{\"age\":23,\"birthdate\":\"2007-11-11\",\"address\":{\"street-name\":\"street\",\"city\":\"city\"}}";
         Person fromJson = gson.fromJson(json, Person.class);
         Assert.assertEquals("Jane Doe", fromJson.name());
