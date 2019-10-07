@@ -79,6 +79,32 @@ shared transience annotations library and is an `api` dependency of the runtime 
 a property and it will be treated as `transient` for both serialization and deserialization. Note that
 this should only be applied to nullable properties.
 
+## Builder Support
+If your `@AutoValue` annotated class has a builder, auto-value-gson will use the builder to 
+instantiate the class. If there is a factory method for your builder, it will be used. If there are 
+multiple factory methods, the one annotated `@AutoValueGsonBuilder` will be used. This can be 
+useful for setting default values or adding validation and normalization logic.
+
+```java
+@AutoValue public abstract class Foo {
+  abstract int bar();
+  abstract String quux();
+
+  public static Builder builder() {
+    return new AutoValue_Foo.Builder();
+  }
+
+  @AutoValueGsonBuilder
+  public static Builder builderWithDefaults() {
+    return new builder().quux("QUUX");
+  }
+  
+  public static Builder builder() {
+    return new AutoValue_Foo.Builder();
+  }
+}
+```
+
 ## Factory
 
 Optionally, auto-value-gson can create a single [TypeAdapterFactory](https://google.github.io/gson/apidocs/com/google/gson/TypeAdapterFactory.html) so
