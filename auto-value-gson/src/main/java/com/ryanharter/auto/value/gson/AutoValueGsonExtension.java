@@ -482,18 +482,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
   }
 
-  private void addConditionalAdapterAssignment(CodeBlock.Builder block,
+  private static void addConditionalAdapterAssignment(CodeBlock.Builder block,
                                                FieldSpec adapterField,
                                                Property prop,
                                                ClassName jsonAdapter,
-                                               List<TypeVariableName> typeParams,
-                                               ParameterSpec jsonWriter,
-                                               ParameterSpec annotatedParam) {
+                                               List<TypeVariableName> typeParams) {
     block.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
     block.beginControlFlow("if ($N == null)", adapterField);
     addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
     block.endControlFlow();
-    block.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
   }
 
   private static void addBuilderFieldSetting(CodeBlock.Builder block,
@@ -564,15 +561,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           writeMethod.beginControlFlow("if ($N.$N() == null)", annotatedParam, prop.methodName);
           writeMethod.addStatement("$N.nullValue()", jsonWriter);
           writeMethod.nextControlFlow("else");
-          addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter,
-              typeParams, jsonWriter, annotatedParam);
+          addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
           writeMethod.addCode(block.build());
+          writeMethod.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
           writeMethod.endControlFlow();
       } else {
         block.add("{\n");
         block.indent();
-        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter,
-            typeParams, jsonWriter, annotatedParam);
+        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
+        block.addStatement("$N.write($N, $N.$N())", adapterField, jsonWriter, annotatedParam, prop.methodName);
         block.unindent();
         block.add("}\n");
         writeMethod.addCode(block.build());
@@ -649,12 +646,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         }
         readMethod.beginControlFlow("case $S:", prop.serializedName());
         FieldSpec adapterField = adapters.get(prop.type);
-        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
-        readMethod.beginControlFlow("if ($N == null)", adapterField);
         CodeBlock.Builder block = CodeBlock.builder();
-        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
+        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         readMethod.addCode(block.build());
-        readMethod.endControlFlow();
         readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
         readMethod.addStatement("break");
         readMethod.endControlFlow();
@@ -671,12 +665,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         FieldSpec field = fields.get(prop);
         readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
         FieldSpec adapterField = adapters.get(prop.type);
-        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
-        readMethod.beginControlFlow("if ($N == null)", adapterField);
         CodeBlock.Builder block = CodeBlock.builder();
-        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
+        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         readMethod.addCode(block.build());
-        readMethod.endControlFlow();
         readMethod.addStatement("$N = $N.read($N)", field, adapterField, jsonReader);
         readMethod.addStatement("continue");
         readMethod.endControlFlow();
@@ -805,13 +796,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         }
         readMethod.beginControlFlow("case $S:", prop.serializedName());
         FieldSpec adapterField = adapters.get(prop.type);
-        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
-        readMethod.beginControlFlow("if ($N == null)", adapterField);
         CodeBlock.Builder block = CodeBlock.builder();
-        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
-        readMethod.endControlFlow();
-        block = CodeBlock.builder();
+        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         addBuilderFieldSetting(block, prop, builder, jsonReader, builderContext, adapters);
         readMethod.addCode(block.build());
         readMethod.addStatement("break");
@@ -829,13 +815,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (!prop.hasSerializedNameAnnotation()) {
         readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
         FieldSpec adapterField = adapters.get(prop.type);
-        readMethod.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
-        readMethod.beginControlFlow("if ($N == null)", adapterField);
         CodeBlock.Builder block = CodeBlock.builder();
-        addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
-        readMethod.endControlFlow();
-        block = CodeBlock.builder();
+        addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         addBuilderFieldSetting(block, prop, builder, jsonReader, builderContext, adapters);
         readMethod.addCode(block.build());
         readMethod.addStatement("continue");
