@@ -442,8 +442,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     MethodSpec readMethod = Optional.ofNullable(builderContext)
         .map(builderCtx ->
-            createReadMethod(className, autoValueTypeName, properties, adapters, jsonAdapter,
-                typeParams, builderCtx, processingEnvironment)
+            createReadMethodWithBuilder(className, autoValueTypeName, properties, adapters,
+                jsonAdapter, typeParams, builderCtx, processingEnvironment)
         ).orElseGet(() ->
             createReadMethod(className, autoValueTypeName, properties, adapters,
                 jsonAdapter, typeParams));
@@ -708,7 +708,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return readMethod.build();
   }
 
-  private MethodSpec createReadMethod(ClassName className,
+  private MethodSpec createReadMethodWithBuilder(ClassName className,
       TypeName autoValueClassName,
       List<Property> properties,
       ImmutableMap<TypeName, FieldSpec> adapters,
