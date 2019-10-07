@@ -1,14 +1,5 @@
 package com.ryanharter.auto.value.gson;
 
-import static com.google.common.base.CaseFormat.LOWER_CAMEL;
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.element.Modifier.VOLATILE;
-
 import com.google.auto.common.GeneratedAnnotations;
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
@@ -57,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -68,7 +60,15 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
-import javax.tools.Diagnostic.Kind;
+
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.Modifier.VOLATILE;
 
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
@@ -81,7 +81,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     static Property create(Messager messager, String humanName, ExecutableElement element) {
       Property property = new Property(humanName, element);
       if (property.isTransient() && !property.nullable()) {
-        messager.printMessage(Kind.ERROR, "Required property cannot be transient!", element);
+        messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
         return null;
       } else {
         return property;
@@ -256,14 +256,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         : classNameClass.nestedClass("GsonTypeAdapter");
     ClassName finalSuperClass = generateExternalAdapter ? classNameClass : superclassRawType;
 
-    TypeSpec typeAdapter = context.builder()
-        .map(builderContext ->
-            createTypeAdapter(classNameClass, autoValueClass, adapterClassName, finalSuperClass,
-                properties, params, builderContext, context.processingEnvironment())
-        )
-        .orElseGet(() -> createTypeAdapter(classNameClass, autoValueClass, adapterClassName,
-            finalSuperClass, properties, params)
-        );
+    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, adapterClassName,
+        finalSuperClass, properties, params, context.builder().orElse(null), context.processingEnvironment());
 
     if (generateExternalAdapter) {
       try {
@@ -411,12 +405,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       ClassName gsonTypeAdapterName,
       ClassName superClassType,
       List<Property> properties,
-      List<TypeVariableName> typeParams) {
+      List<TypeVariableName> typeParams,
+      @Nullable BuilderContext builderContext,
+      ProcessingEnvironment processingEnvironment) {
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
-    TypeName autoValueTypeName = autoValueClassName;
-    if (!typeParams.isEmpty()) {
-      autoValueTypeName = ParameterizedTypeName.get(autoValueClassName, typeParams.toArray(new TypeName[typeParams.size()]));
-    }
+    final TypeName autoValueTypeName = !typeParams.isEmpty()
+        ? ParameterizedTypeName.get(autoValueClassName, typeParams.toArray(new TypeName[typeParams.size()]))
+        : autoValueClassName;
     ParameterizedTypeName superClass = ParameterizedTypeName.get(typeAdapterClass, autoValueTypeName);
 
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
@@ -445,6 +440,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         superClassType);
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
+    MethodSpec readMethod = Optional.ofNullable(builderContext)
+        .map(builderCtx ->
+            createReadMethod(className, autoValueTypeName, properties, adapters, jsonAdapter,
+                typeParams, builderCtx, processingEnvironment)
+        ).orElseGet(() ->
+            createReadMethod(className, autoValueTypeName, properties, adapters,
+                jsonAdapter, typeParams));
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, FINAL)
@@ -455,74 +457,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
-        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
-            jsonAdapter, typeParams));
-
-    if (!typeParams.isEmpty()) {
-      classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
-    }
-
-    return classBuilder.build();
-  }
-
-  private TypeSpec createTypeAdapter(ClassName className,
-      ClassName autoValueClassName,
-      ClassName gsonTypeAdapterName,
-      ClassName superClassType,
-      List<Property> properties,
-      List<TypeVariableName> typeParams,
-      BuilderContext builderContext,
-      ProcessingEnvironment processingEnvironment) {
-    ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
-    TypeName autoValueTypeName = autoValueClassName;
-    if (!typeParams.isEmpty()) {
-      autoValueTypeName = ParameterizedTypeName
-          .get(autoValueClassName, typeParams.toArray(new TypeName[typeParams.size()]));
-    }
-    ParameterizedTypeName superClass = ParameterizedTypeName
-        .get(typeAdapterClass, autoValueTypeName);
-
-    ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
-    MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
-        .addModifiers(PUBLIC)
-        .addParameter(gsonParam);
-
-    if (!typeParams.isEmpty()) {
-
-      ParameterSpec typeAdapter = ParameterSpec
-          .builder(ArrayTypeName.of(Type.class), "types")
-          .build();
-      constructor.addParameter(typeAdapter);
-      constructor.addStatement("typeArgs = $N", typeAdapter);
-    }
-
-    ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
-    constructor.addStatement("$1T fields = new $1T()",
-        ParameterizedTypeName.get(ArrayList.class, String.class));
-    for (Property prop : properties) {
-      constructor.addStatement("fields.add($S)", prop.humanName);
-    }
-
-    constructor.addStatement("this.gson = gson");
-    constructor.addStatement(
-        "this.realFieldNames = $T.renameFields($T.class, fields, gson.fieldNamingStrategy())",
-        ClassName.get("com.ryanharter.auto.value.gson.internal", "Util"),
-        superClassType);
-
-    ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
-    TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
-        .addModifiers(PUBLIC, FINAL)
-        .superclass(superClass)
-        .addFields(adapters.values())
-        .addField(FieldSpec
-            .builder(ParameterizedTypeName.get(Map.class, String.class, String.class),
-                "realFieldNames", PRIVATE, FINAL).build())
-        .addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
-        .addMethod(constructor.build())
-        .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
-            jsonAdapter, typeParams))
-        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters, jsonAdapter,
-            typeParams, builderContext, processingEnvironment));
+        .addMethod(readMethod);
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
@@ -532,10 +467,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private static void addTypeAdapterAssignment(CodeBlock.Builder codeBuilder,
-      FieldSpec adapterField,
-      Property prop,
-      ClassName jsonAdapter,
-      List<TypeVariableName> typeParams) {
+                                               FieldSpec adapterField,
+                                               Property prop,
+                                               ClassName jsonAdapter,
+                                               List<TypeVariableName> typeParams) {
     TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
     ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
 
@@ -567,7 +502,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
                                              ParameterSpec jsonReader,
                                              BuilderContext builderContext,
                                              Map<TypeName, FieldSpec> adapters) {
-
     Stream<MethodSpec> setterMethodSpecs = builderContext.setters().get(prop.humanName).stream()
         .map(setterMethod -> MethodSpec.overriding(setterMethod).build());
 
@@ -825,7 +759,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         if (annotatedMethods.size() == 0) {
           processingEnvironment.getMessager()
               .printMessage(
-                  Kind.ERROR,
+                  Diagnostic.Kind.ERROR,
                   "Too many builder methods in " + className.simpleName() + ". Annotate the "
                       + "builder this TypeAdapter should use with @AutoValueGsonBuilder."
               );
@@ -835,7 +769,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         } else {
           processingEnvironment.getMessager()
               .printMessage(
-                  Kind.ERROR,
+                  Diagnostic.Kind.ERROR,
                   "Too many @AutoValueGsonBuilder annotations",
                   annotatedMethods.stream().findFirst().get()
               );
@@ -919,7 +853,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // find the build method to use
     if (!builderContext.buildMethod().isPresent()) {
       processingEnvironment.getMessager()
-          .printMessage(Kind.ERROR, "Could not determine the build method in %s.", builderContext.builderType());
+          .printMessage(
+              Diagnostic.Kind.ERROR,
+              "Could not determine the build method. Make sure it is named \"build\".",
+              builderContext.builderType());
     }
 
     builderContext.buildMethod()
