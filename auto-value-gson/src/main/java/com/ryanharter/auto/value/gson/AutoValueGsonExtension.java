@@ -593,6 +593,45 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addParameter(jsonReader)
         .addException(IOException.class);
 
+    // Validate the builderContext if there is one.
+    if (builderContext != null) {
+      if (!builderContext.buildMethod().isPresent()) {
+        processingEnvironment.getMessager()
+            .printMessage(
+                Diagnostic.Kind.ERROR,
+                "Could not determine the build method. Make sure it is named \"build\".",
+                builderContext.builderType());
+        return readMethod.build();
+      }
+
+      Set<ExecutableElement> builderMethods = builderContext.builderMethods();
+
+      if (builderMethods.size() > 1) {
+        Set<ExecutableElement> annotatedMethods = builderMethods.stream()
+            .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
+            .collect(Collectors.toSet());
+
+        if (annotatedMethods.size() > 1) {
+          processingEnvironment.getMessager()
+              .printMessage(
+                  Diagnostic.Kind.ERROR,
+                  "Too many @AutoValueGsonBuilder annotated builder methods.",
+                  annotatedMethods.stream().findAny().get()
+              );
+          return readMethod.build();
+        }
+
+        if (annotatedMethods.isEmpty()) {
+          processingEnvironment.getMessager().printMessage(
+              Diagnostic.Kind.ERROR,
+              "Too many builder methods. Annotate builder method with @AutoValueGsonBuilder.",
+              builderMethods.stream().findAny().get()
+          );
+          return readMethod.build();
+        }
+      }
+    }
+
     ClassName token = ClassName.get(JsonToken.NULL.getDeclaringClass());
 
     readMethod.beginControlFlow("if ($N.peek() == $T.NULL)", jsonReader, token);
@@ -628,23 +667,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
               .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
               .collect(Collectors.toSet());
 
-          if (annotatedMethods.size() == 0) {
-            processingEnvironment.getMessager()
-                .printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "Too many builder methods in " + className.simpleName() + ". Annotate the "
-                        + "builder this TypeAdapter should use with @AutoValueGsonBuilder."
-                );
-            throw new IllegalStateException();
-          } else if (annotatedMethods.size() == 1) {
+          if (annotatedMethods.size() == 1) {
             builderMethod = annotatedMethods.stream().findFirst().get();
           } else {
-            processingEnvironment.getMessager()
-                .printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "Too many @AutoValueGsonBuilder annotations",
-                    annotatedMethods.stream().findFirst().get()
-                );
             throw new IllegalStateException();
           }
         }
