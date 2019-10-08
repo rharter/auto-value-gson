@@ -26,6 +26,7 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.CodeBlock.Builder;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -460,7 +461,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return classBuilder.build();
   }
 
-  private static void addTypeAdapterAssignment(CodeBlock.Builder codeBuilder,
+  private static void addConditionalAdapterAssignment(CodeBlock.Builder block,
                                                FieldSpec adapterField,
                                                Property prop,
                                                ClassName jsonAdapter,
@@ -468,31 +469,23 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     TypeName type = prop.type.isPrimitive() ? prop.type.box() : prop.type;
     ParameterizedTypeName adp = ParameterizedTypeName.get(jsonAdapter, type);
 
-    if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
-      codeBuilder.addStatement("this.$N = $N = ($T) gson.getAdapter($L)", adapterField, adapterField,
-          adp, makeParameterizedType(prop.type, typeParams));
-    } else {
-      codeBuilder.addStatement("this.$N = $N = gson.getAdapter($T.class)", adapterField, adapterField, type);
-    }
-  }
-
-  private static void addConditionalAdapterAssignment(CodeBlock.Builder block,
-                                               FieldSpec adapterField,
-                                               Property prop,
-                                               ClassName jsonAdapter,
-                                               List<TypeVariableName> typeParams) {
     block.addStatement("$T $N = this.$N", adapterField.type, adapterField, adapterField);
     block.beginControlFlow("if ($N == null)", adapterField);
-    addTypeAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
+    if (prop.type instanceof ParameterizedTypeName || prop.type instanceof TypeVariableName) {
+      block.addStatement("this.$N = $N = ($T) gson.getAdapter($L)", adapterField, adapterField,
+          adp, makeParameterizedType(prop.type, typeParams));
+    } else {
+      block.addStatement("this.$N = $N = gson.getAdapter($T.class)", adapterField, adapterField, type);
+    }
     block.endControlFlow();
   }
 
-  private static void addBuilderFieldSetting(CodeBlock.Builder block,
+  private static void addBuilderFieldSetting(Builder block,
                                              Property prop,
-                                             FieldSpec builder,
+                                             FieldSpec adapter,
                                              ParameterSpec jsonReader,
-                                             BuilderContext builderContext,
-                                             Map<TypeName, FieldSpec> adapters) {
+                                             FieldSpec builder,
+                                             BuilderContext builderContext) {
     Stream<MethodSpec> setterMethodSpecs = builderContext.setters().get(prop.humanName).stream()
         .map(setterMethod -> MethodSpec.overriding(setterMethod).build());
 
@@ -503,7 +496,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .findFirst();
 
     if (setter.isPresent()) {
-      FieldSpec adapter = adapters.get(prop.type);
       block.addStatement("$N.$N($N.read($N))", builder, setter.get(), adapter, jsonReader);
     } else {
       // Optional fields are not supported.
@@ -512,6 +504,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           "Setter not found for " + prop.element;
       throw new IllegalArgumentException(errorMsg);
     }
+  }
+
+  private static void addFieldSetting(CodeBlock.Builder block,
+                                      Property prop,
+                                      Map<Property, FieldSpec> fields,
+                                      FieldSpec adapter,
+                                      ParameterSpec jsonReader) {
+    block.addStatement("$N = $N.read($N)", fields.get(prop), adapter, jsonReader);
   }
 
   private MethodSpec createWriteMethod(TypeName autoValueClassName,
@@ -718,14 +718,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         FieldSpec adapterField = adapters.get(prop.type);
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
         if (builderField.isPresent()) {
-          block = CodeBlock.builder();
-          addBuilderFieldSetting(block, prop, builderField.get(), jsonReader, builderContext, adapters);
-          readMethod.addCode(block.build());
+          addBuilderFieldSetting(block, prop, adapterField, jsonReader, builderField.get(), builderContext);
         } else {
-          readMethod.addStatement("$N = $N.read($N)", fields.get(prop), adapterField, jsonReader);
+          addFieldSetting(block, prop, fields, adapterField, jsonReader);
         }
+        readMethod.addCode(block.build());
         readMethod.addStatement("break");
         readMethod.endControlFlow();
       }
@@ -742,14 +740,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         FieldSpec adapterField = adapters.get(prop.type);
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
-        readMethod.addCode(block.build());
         if (builderField.isPresent()) {
-          block = CodeBlock.builder();
-          addBuilderFieldSetting(block, prop, builderField.get(), jsonReader, builderContext, adapters);
-          readMethod.addCode(block.build());
+          addBuilderFieldSetting(block, prop, adapterField, jsonReader, builderField.get(), builderContext);
         } else {
-          readMethod.addStatement("$N = $N.read($N)", fields.get(prop), adapterField, jsonReader);
+          addFieldSetting(block, prop, fields, adapterField, jsonReader);
         }
+        readMethod.addCode(block.build());
         readMethod.addStatement("continue");
         readMethod.endControlFlow();
       }
