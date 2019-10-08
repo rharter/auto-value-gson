@@ -98,10 +98,6 @@ useful for setting default values or adding validation and normalization logic.
   public static Builder builderWithDefaults() {
     return new builder().quux("QUUX");
   }
-  
-  public static Builder builder() {
-    return new AutoValue_Foo.Builder();
-  }
 }
 ```
 
