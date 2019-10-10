@@ -6,11 +6,11 @@ dependencies {
     annotationProcessor 'net.ltgt.gradle.incap:incap:0.2' // https://github.com/google/auto/issues/615#issuecomment-438045951
     annotationProcessor project(':auto-value-gson')
     compileOnly project(':auto-value-gson')
-    compileOnly 'com.google.auto.value:auto-value-annotations:1.7rc1'
+    compileOnly 'com.google.auto.value:auto-value-annotations:1.7'
     compile 'com.google.code.gson:gson:2.8.5'
     compile project(':auto-value-gson-runtime')
 
     testCompile 'junit:junit:4.12'
-    testAnnotationProcessor 'com.google.auto.value:auto-value:1.7rc1'
-    testCompileOnly 'com.google.auto.value:auto-value-annotations:1.7rc1'
+    testAnnotationProcessor 'com.google.auto.value:auto-value:1.7'
+    testCompileOnly 'com.google.auto.value:auto-value-annotations:1.7'
 }
