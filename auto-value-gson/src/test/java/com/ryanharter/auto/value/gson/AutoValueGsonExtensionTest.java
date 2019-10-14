@@ -2,6 +2,7 @@ package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import java.util.Arrays;
@@ -83,20 +84,6 @@ public class AutoValueGsonExtensionTest {
         + "@Nullable abstract List<? extends String> j();\n"
         // Deeply nested parameterized type
         + "abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n" +
-        "  @AutoValue.Builder static abstract class Builder {\n" +
-        "    abstract Builder a(String a);\n" +
-        "    abstract Builder b(int[] b);\n" +
-        "    abstract Builder c(int c);\n" +
-        "    abstract Builder d(String d);\n" +
-        "    abstract Builder e(String e);\n" +
-        "    abstract Builder f(ImmutableMap<String, Number> f);\n" +
-        "    abstract Builder g(Set<String> g);\n" +
-        "    abstract Builder h(Map<String, Set<String>> h);\n" +
-        "    abstract Builder i(String i);\n" +
-        "    abstract Builder j(List<? extends String> j);\n" +
-        "    abstract Builder o(Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o);\n" +
-        "    abstract Test build();\n" +
-        "  }\n" +
         "  static class TestTypeAdapter extends TypeAdapter<String> {\n" +
         "    @Override public void write(JsonWriter out, String value) throws IOException {}\n" +
         "    @Override public String read(JsonReader in) throws IOException { return null; }\n" +
@@ -488,7 +475,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -526,7 +513,7 @@ public class AutoValueGsonExtensionTest {
     );
 
     Compilation compilation = javac()
-        .withProcessors(new AutoValueProcessor())
+        .withProcessors(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compile(nullable, source);
     assertAbout(compilations())
         .that(compilation)
@@ -536,7 +523,8 @@ public class AutoValueGsonExtensionTest {
     assertThat(compilation.generatedSourceFiles().get(0).getName()).endsWith("AutoValue_Test.java");
   }
 
-  @Test public void simpleNoEmpty() {
+  @Test
+  public void simpleWithBuilder() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.gson.annotations.SerializedName;\n"
@@ -553,52 +541,55 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "@AutoValue public abstract class Test {\n"
-        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "@AutoValue abstract class Test {\n"
+        + "  static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
         + "    return new AutoValue_Test.GsonTypeAdapter(gson);\n"
         + "  }\n"
         // Reference type
-        + "public abstract String a();\n"
+        + "abstract String a();\n"
         // Array type
-        + "public abstract int[] b();\n"
+        + "abstract int[] b();\n"
         // Primitive type
-        + "public abstract int c();\n"
+        + "abstract int c();\n"
         // SerializedName
-        + "@SerializedName(\"_D\") public abstract String d();\n"
+        + "@SerializedName(\"_D\") abstract String d();\n"
         // Nullable type
         + "@Nullable abstract String e();\n"
         // Parametrized type, multiple parameters
-        + "public abstract ImmutableMap<String, Number> f();\n"
+        + "abstract ImmutableMap<String, Number> f();\n"
         // Parametrized type, single parameter
-        + "public abstract Set<String> g();\n"
+        + "abstract Set<String> g();\n"
         // Nested parameterized type
-        + "public abstract Map<String, Set<String>> h();\n"
+        + "abstract Map<String, Set<String>> h();\n"
         // SerializedName with alternate
-        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) public abstract String i();\n"
+        + "@SerializedName(value = \"_I\", alternate = {\"_I_1\", \"_I_2\"}) abstract String i();\n"
         // Nullable collection type
-        + "@Nullable public abstract List<String> j();\n" +
-        "  @AutoValue.Builder public static abstract class Builder {\n" +
-        "    public abstract Builder a(String a);\n" +
-        "    public abstract Builder b(int[] b);\n" +
-        "    public abstract Builder c(int c);\n" +
-        "    public abstract Builder d(String d);\n" +
-        "    public abstract Builder e(String e);\n" +
-        "    public abstract Builder f(ImmutableMap<String, Number> f);\n" +
-        "    public abstract Builder g(Set<String> g);\n" +
-        "    public abstract Builder h(Map<String, Set<String>> h);\n" +
-        "    public abstract Builder i(String i);\n" +
-        "    public abstract Builder j(List<String> j);\n" +
-        "    public abstract Test build();\n" +
+        + "@Nullable abstract List<? extends String> j();\n"
+        // Deeply nested parameterized type
+        + "abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n" +
+        "  @AutoValue.Builder static abstract class Builder {\n" +
+        "    abstract Builder a(String a);\n" +
+        "    abstract Builder b(int[] b);\n" +
+        "    abstract Builder c(int c);\n" +
+        "    abstract Builder d(String d);\n" +
+        "    abstract Builder e(String e);\n" +
+        "    abstract Builder f(ImmutableMap<String, Number> f);\n" +
+        "    abstract Builder g(Set<String> g);\n" +
+        "    abstract Builder h(Map<String, Set<String>> h);\n" +
+        "    abstract Builder i(String i);\n" +
+        "    abstract Builder j(List<? extends String> j);\n" +
+        "    abstract Builder o(Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o);\n" +
+        "    abstract Test build();\n" +
         "  }\n" +
-        "  public static class TestTypeAdapter extends TypeAdapter<String> {\n" +
+        "  static class TestTypeAdapter extends TypeAdapter<String> {\n" +
         "    @Override public void write(JsonWriter out, String value) throws IOException {}\n" +
         "    @Override public String read(JsonReader in) throws IOException { return null; }\n" +
         "  }\n" +
-        "  public static class TestListTypeAdapter extends TypeAdapter<List<String>> {\n" +
+        "  static class TestListTypeAdapter extends TypeAdapter<List<String>> {\n" +
         "    @Override public void write(JsonWriter out, List<String> value) throws IOException {}\n" +
         "    @Override public List<String> read(JsonReader in) throws IOException { return null; }\n" +
         "  }\n" +
-        "  public static class TestTypeAdapterFactory implements TypeAdapterFactory {\n" +
+        "  static class TestTypeAdapterFactory implements TypeAdapterFactory {\n" +
         "    @Override public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) { return null; }\n" +
         "  }\n"
         + "}\n"
@@ -615,6 +606,7 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.stream.JsonWriter;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.ryanharter.auto.value.gson.internal.Util;\n"
+        + "import com.ryanharter.auto.value.gson.internal.WildcardUtil;\n"
         + "import java.io.IOException;\n"
         + "import java.lang.Integer;\n"
         + "import java.lang.Number;\n"
@@ -635,8 +627,10 @@ public class AutoValueGsonExtensionTest {
         + "  AutoValue_Test(String a, int[] b, int c, String d, @Nullable String e,\n"
         + "      ImmutableMap<String, Number> f, Set<String> g, Map<String, Set<String>> h, "
         + "String i,\n"
-        + "      @Nullable List<String> j) {\n"
-        + "    super(a, b, c, d, e, f, g, h, i, j);\n"
+        + "      @Nullable List<? extends String> j,\n"
+        + "      Map<String, Map<String, Map<String, Map<String, Map<String, ? extends "
+        + "String>>>>> o) {\n"
+        + "    super(a, b, c, d, e, f, g, h, i, j, o);\n"
         + "  }\n"
         + "\n"
         + "  public static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
@@ -648,7 +642,11 @@ public class AutoValueGsonExtensionTest {
         + "    private volatile TypeAdapter<Set<String>> set__string_adapter;\n"
         + "    private volatile TypeAdapter<Map<String, Set<String>>> "
         + "map__string_set__string_adapter;\n"
-        + "    private volatile TypeAdapter<List<String>> list__string_adapter;\n"
+        + "    private volatile TypeAdapter<List<? extends String>> "
+        + "list__wildcard__string_adapter;\n"
+        + "    private volatile TypeAdapter<Map<String, Map<String, Map<String, Map<String, "
+        + "Map<String, ? extends String>>>>>> "
+        + "map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter;\n"
         + "    private final Map<String, String> realFieldNames;\n"
         + "    private final Gson gson;\n"
         + "    public GsonTypeAdapter(Gson gson) {\n"
@@ -663,6 +661,7 @@ public class AutoValueGsonExtensionTest {
         + "      fields.add(\"h\");\n"
         + "      fields.add(\"i\");\n"
         + "      fields.add(\"j\");\n"
+        + "      fields.add(\"o\");\n"
         + "      this.gson = gson;\n"
         + "      this.realFieldNames = Util.renameFields($AutoValue_Test.class, fields, gson"
         + ".fieldNamingStrategy());\n"
@@ -775,13 +774,40 @@ public class AutoValueGsonExtensionTest {
         + "      if (object.j() == null) {\n"
         + "        jsonWriter.nullValue();\n"
         + "      } else {\n"
-        + "        TypeAdapter<List<String>> list__string_adapter = this.list__string_adapter;\n"
-        + "        if (list__string_adapter == null) {\n"
-        + "          this.list__string_adapter = list__string_adapter = "
-        + "(TypeAdapter<List<String>>) gson.getAdapter(TypeToken.getParameterized(List.class, "
-        + "String.class));\n"
+        + "        TypeAdapter<List<? extends String>> list__wildcard__string_adapter = this"
+        + ".list__wildcard__string_adapter;\n"
+        + "        if (list__wildcard__string_adapter == null) {\n"
+        + "          this.list__wildcard__string_adapter = list__wildcard__string_adapter = "
+        + "(TypeAdapter<List<? extends String>>) gson.getAdapter(TypeToken.getParameterized(List"
+        + ".class, WildcardUtil.subtypeOf(String.class)));\n"
         + "        }\n"
-        + "        list__string_adapter.write(jsonWriter, object.j());\n"
+        + "        list__wildcard__string_adapter.write(jsonWriter, object.j());\n"
+        + "      }\n"
+        + "      jsonWriter.name(realFieldNames.get(\"o\"));\n"
+        + "      if (object.o() == null) {\n"
+        + "        jsonWriter.nullValue();\n"
+        + "      } else {\n"
+        + "        TypeAdapter<Map<String, Map<String, Map<String, Map<String, Map<String, ? "
+        + "extends String>>>>>> "
+        + "map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter ="
+        + " this"
+        + ".map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter;\n"
+        + "        if "
+        + "(map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter "
+        + "== null) {\n"
+        + "          this"
+        + ".map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter "
+        + "= map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter"
+        + " = (TypeAdapter<Map<String, Map<String, Map<String, Map<String, Map<String, ? extends "
+        + "String>>>>>>) gson.getAdapter(TypeToken.getParameterized(Map.class, String.class, "
+        + "TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Map"
+        + ".class, String.class, TypeToken.getParameterized(Map.class, String.class, TypeToken"
+        + ".getParameterized(Map.class, String.class, WildcardUtil.subtypeOf(String.class))"
+        + ".getType()).getType()).getType()).getType()));\n"
+        + "        }\n"
+        + "        "
+        + "map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter"
+        + ".write(jsonWriter, object.o());\n"
         + "      }\n"
         + "      jsonWriter.endObject();\n"
         + "    }\n"
@@ -793,16 +819,7 @@ public class AutoValueGsonExtensionTest {
         + "        return null;\n"
         + "      }\n"
         + "      jsonReader.beginObject();\n"
-        + "      String a = null;\n"
-        + "      int[] b = null;\n"
-        + "      int c = 0;\n"
-        + "      String d = null;\n"
-        + "      String e = null;\n"
-        + "      ImmutableMap<String, Number> f = null;\n"
-        + "      Set<String> g = null;\n"
-        + "      Map<String, Set<String>> h = null;\n"
-        + "      String i = null;\n"
-        + "      List<String> j = null;\n"
+        + "      Test.Builder builder = new AutoValue_Test.Builder();\n"
         + "      while (jsonReader.hasNext()) {\n"
         + "        String _name = jsonReader.nextName();\n"
         + "        if (jsonReader.peek() == JsonToken.NULL) {\n"
@@ -815,7 +832,7 @@ public class AutoValueGsonExtensionTest {
         + "            if (string_adapter == null) {\n"
         + "              this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
         + "            }\n"
-        + "            d = string_adapter.read(jsonReader);\n"
+        + "            builder.d(string_adapter.read(jsonReader));\n"
         + "            break;\n"
         + "          }\n"
         + "          case \"_I_1\":\n"
@@ -825,7 +842,7 @@ public class AutoValueGsonExtensionTest {
         + "            if (string_adapter == null) {\n"
         + "              this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
         + "            }\n"
-        + "            i = string_adapter.read(jsonReader);\n"
+        + "            builder.i(string_adapter.read(jsonReader));\n"
         + "            break;\n"
         + "          }\n"
         + "          default: {\n"
@@ -834,16 +851,15 @@ public class AutoValueGsonExtensionTest {
         + "              if (string_adapter == null) {\n"
         + "                this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
         + "              }\n"
-        + "              a = string_adapter.read(jsonReader);\n"
+        + "              builder.a(string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"b\").equals(_name)) {\n"
         + "              TypeAdapter<int[]> array__int_adapter = this.array__int_adapter;\n"
         + "              if (array__int_adapter == null) {\n"
-        + "                this.array__int_adapter = array__int_adapter = gson.getAdapter(int[]"
-        + ".class);\n"
+        + "                this.array__int_adapter = array__int_adapter = gson.getAdapter(int[].class);\n"
         + "              }\n"
-        + "              b = array__int_adapter.read(jsonReader);\n"
+        + "              builder.b(array__int_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"c\").equals(_name)) {\n"
@@ -851,7 +867,7 @@ public class AutoValueGsonExtensionTest {
         + "              if (int__adapter == null) {\n"
         + "                this.int__adapter = int__adapter = gson.getAdapter(Integer.class);\n"
         + "              }\n"
-        + "              c = int__adapter.read(jsonReader);\n"
+        + "              builder.c(int__adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"e\").equals(_name)) {\n"
@@ -859,52 +875,47 @@ public class AutoValueGsonExtensionTest {
         + "              if (string_adapter == null) {\n"
         + "                this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
         + "              }\n"
-        + "              e = string_adapter.read(jsonReader);\n"
+        + "              builder.e(string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"f\").equals(_name)) {\n"
-        + "              TypeAdapter<ImmutableMap<String, Number>> "
-        + "immutableMap__string_number_adapter = this.immutableMap__string_number_adapter;\n"
+        + "              TypeAdapter<ImmutableMap<String, Number>> immutableMap__string_number_adapter = this.immutableMap__string_number_adapter;\n"
         + "              if (immutableMap__string_number_adapter == null) {\n"
-        + "                this.immutableMap__string_number_adapter = "
-        + "immutableMap__string_number_adapter = (TypeAdapter<ImmutableMap<String, Number>>) gson"
-        + ".getAdapter(TypeToken.getParameterized(ImmutableMap.class, String.class, Number.class)"
-        + ");\n"
+        + "                this.immutableMap__string_number_adapter = immutableMap__string_number_adapter = (TypeAdapter<ImmutableMap<String, Number>>) gson.getAdapter(TypeToken.getParameterized(ImmutableMap.class, String.class, Number.class));\n"
         + "              }\n"
-        + "              f = immutableMap__string_number_adapter.read(jsonReader);\n"
+        + "              builder.f(immutableMap__string_number_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"g\").equals(_name)) {\n"
         + "              TypeAdapter<Set<String>> set__string_adapter = this.set__string_adapter;\n"
         + "              if (set__string_adapter == null) {\n"
-        + "                this.set__string_adapter = set__string_adapter = "
-        + "(TypeAdapter<Set<String>>) gson.getAdapter(TypeToken.getParameterized(Set.class, "
-        + "String.class));\n"
+        + "                this.set__string_adapter = set__string_adapter = (TypeAdapter<Set<String>>) gson.getAdapter(TypeToken.getParameterized(Set.class, String.class));\n"
         + "              }\n"
-        + "              g = set__string_adapter.read(jsonReader);\n"
+        + "              builder.g(set__string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"h\").equals(_name)) {\n"
-        + "              TypeAdapter<Map<String, Set<String>>> map__string_set__string_adapter = "
-        + "this.map__string_set__string_adapter;\n"
+        + "              TypeAdapter<Map<String, Set<String>>> map__string_set__string_adapter = this.map__string_set__string_adapter;\n"
         + "              if (map__string_set__string_adapter == null) {\n"
-        + "                this.map__string_set__string_adapter = map__string_set__string_adapter"
-        + " = (TypeAdapter<Map<String, Set<String>>>) gson.getAdapter(TypeToken.getParameterized"
-        + "(Map.class, String.class, TypeToken.getParameterized(Set.class, String.class).getType"
-        + "()));\n"
+        + "                this.map__string_set__string_adapter = map__string_set__string_adapter = (TypeAdapter<Map<String, Set<String>>>) gson.getAdapter(TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Set.class, String.class).getType()));\n"
         + "              }\n"
-        + "              h = map__string_set__string_adapter.read(jsonReader);\n"
+        + "              builder.h(map__string_set__string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            if (realFieldNames.get(\"j\").equals(_name)) {\n"
-        + "              TypeAdapter<List<String>> list__string_adapter = this"
-        + ".list__string_adapter;\n"
-        + "              if (list__string_adapter == null) {\n"
-        + "                this.list__string_adapter = list__string_adapter = "
-        + "(TypeAdapter<List<String>>) gson.getAdapter(TypeToken.getParameterized(List.class, "
-        + "String.class));\n"
+        + "              TypeAdapter<List<? extends String>> list__wildcard__string_adapter = this.list__wildcard__string_adapter;\n"
+        + "              if (list__wildcard__string_adapter == null) {\n"
+        + "                this.list__wildcard__string_adapter = list__wildcard__string_adapter = (TypeAdapter<List<? extends String>>) gson.getAdapter(TypeToken.getParameterized(List.class, WildcardUtil.subtypeOf(String.class)));\n"
         + "              }\n"
-        + "              j = list__string_adapter.read(jsonReader);\n"
+        + "              builder.j(list__wildcard__string_adapter.read(jsonReader));\n"
+        + "              continue;\n"
+        + "            }\n"
+        + "            if (realFieldNames.get(\"o\").equals(_name)) {\n"
+        + "              TypeAdapter<Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>>> map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter = this.map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter;\n"
+        + "              if (map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter == null) {\n"
+        + "                this.map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter = map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter = (TypeAdapter<Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>>>) gson.getAdapter(TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Map.class, String.class, TypeToken.getParameterized(Map.class, String.class, WildcardUtil.subtypeOf(String.class)).getType()).getType()).getType()).getType()));\n"
+        + "              }\n"
+        + "              builder.o(map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
         + "            jsonReader.skipValue();\n"
@@ -912,7 +923,7 @@ public class AutoValueGsonExtensionTest {
         + "        }\n"
         + "      }\n"
         + "      jsonReader.endObject();\n"
-        + "      return new AutoValue_Test(a, b, c, d, e, f, g, h, i, j);\n"
+        + "      return builder.build();\n"
         + "    }\n"
         + "  }\n"
         + "}"
@@ -920,7 +931,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1054,7 +1065,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1187,7 +1198,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
             .that(source)
-            .processedWith(new AutoValueProcessor())
+            .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
             .compilesWithoutError()
             .and()
             .generatesSources(expected);
@@ -1268,7 +1279,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningCount(2)
         .and()
@@ -1297,7 +1308,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(ImmutableSet.of(source1, source2))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning TypeAdapter<test.Bar> on "
             + "test.Foo class. Skipping GsonTypeAdapter generation.");
@@ -1320,7 +1331,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningContaining("Found static method returning TypeAdapter with no type "
             + "arguments, skipping GsonTypeAdapter generation.");
@@ -1343,7 +1354,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .withWarningCount(2);
   }
@@ -1455,7 +1466,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
       .that(Arrays.asList(nullable, source))
-      .processedWith(new AutoValueProcessor())
+      .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
       .compilesWithoutError()
       .and()
       .generatesSources(expected);
@@ -1701,7 +1712,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1821,7 +1832,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
@@ -1844,7 +1855,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
-        .processedWith(new AutoValueProcessor())
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .failsToCompile()
         .withErrorContaining("Required property cannot be transient!");
   }
