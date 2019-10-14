@@ -80,10 +80,9 @@ a property and it will be treated as `transient` for both serialization and dese
 this should only be applied to nullable properties.
 
 ## Builder Support
-If your `@AutoValue` annotated class has a builder, auto-value-gson will use the builder to 
-instantiate the class. If there is a factory method for your builder, it will be used. If there are 
-multiple factory methods, the one annotated `@AutoValueGsonBuilder` will be used. This can be 
-useful for setting default values or adding validation and normalization logic.
+If your `@AutoValue` class has a builder, auto-value-gson will use the builder to 
+instantiate the class. If the `@AutoValue` class has a static no-argument factory method for its builder, it will be used. If there are multiple factory methods, the one annotated `@AutoValueGsonBuilder` will be used. This can be 
+useful for setting default values.
 
 ```java
 @AutoValue public abstract class Foo {
