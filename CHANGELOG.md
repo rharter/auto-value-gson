@@ -1,5 +1,10 @@
 # Change Log
 
+## Version 1.1.0 (2019-10-15)
+
+* Adds support for property defaults, normalization, and validation via Builders (#224)
+* Migrate off deprecated generatedAnnotation method (#215)
+
 ## Version 1.0.0 (2019-02-08)
 
 * Adds support for wildcard types.

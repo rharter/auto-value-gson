@@ -228,8 +228,8 @@ Enable R8 by setting `android.enableR8=true`.
 Add a Gradle dependency to the `apt` and `provided` configuration.
 
 ```kotlin
-annotationProcessor("com.ryanharter.auto.value:auto-value-gson:1.0.0")
-implementation("com.ryanharter.auto.value:auto-value-gson-runtime:1.0.0")
+annotationProcessor("com.ryanharter.auto.value:auto-value-gson:1.1.0")
+implementation("com.ryanharter.auto.value:auto-value-gson-runtime:1.1.0")
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).
