@@ -451,8 +451,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
-        .addMethod(createReadMethod(className, autoValueTypeName, properties, adapters,
-            jsonAdapter, typeParams, builderContext, processingEnvironment));
+        .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
+            adapters, jsonAdapter, typeParams, builderContext, processingEnvironment));
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
@@ -575,7 +575,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private MethodSpec createReadMethod(ClassName className,
-      TypeName autoValueClassName,
+      ClassName autoValueClassName,
+      TypeName autoValueTypeName,
       List<Property> properties,
       ImmutableMap<TypeName, FieldSpec> adapters,
       ClassName jsonAdapter,
@@ -589,7 +590,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
             .addMember("value", "\"unchecked\"")
             .build())
         .addModifiers(PUBLIC)
-        .returns(autoValueClassName)
+        .returns(autoValueTypeName)
         .addParameter(jsonReader)
         .addException(IOException.class);
 
@@ -646,7 +647,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // Will be absent if not using AutoValue builder
     Optional<FieldSpec> builderField = Optional.ofNullable(builderContext)
         .map(ctx -> FieldSpec
-            .builder(ClassName.get(ctx.builderType()), "builder")
+            .builder(TypeName.get(ctx.builderType().asType()), "builder")
             .build());
 
     if (builderField.isPresent()) {
@@ -674,8 +675,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
           }
         }
 
-        readMethod.addStatement("$T $N = $T.$L", builderField.get().type, builderField.get(),
-            autoValueClassName, builderMethod);
+        readMethod.addStatement("$T $N = $T.$N()", builderField.get().type, builderField.get(),
+            autoValueClassName, builderMethod.getSimpleName());
       }
     } else {
       // add the properties
@@ -763,7 +764,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     } else {
       StringBuilder format = new StringBuilder("return new ");
       format.append(className.simpleName().replaceAll("\\$", ""));
-      if (autoValueClassName instanceof ParameterizedTypeName) {
+      if (autoValueTypeName instanceof ParameterizedTypeName) {
         format.append("<>");
       }
       format.append("(");
