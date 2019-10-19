@@ -475,6 +475,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
@@ -931,6 +932,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
@@ -1065,6 +1067,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source)
+        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
@@ -1198,6 +1201,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
             .that(source)
+            .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
             .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
             .compilesWithoutError()
             .and()
@@ -1466,6 +1470,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
       .that(Arrays.asList(nullable, source))
+      .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
       .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
       .compilesWithoutError()
       .and()
@@ -1712,6 +1717,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSource())
         .that(source1)
+        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
@@ -1832,6 +1838,7 @@ public class AutoValueGsonExtensionTest {
 
     assertAbout(javaSources())
         .that(Arrays.asList(nullable, source))
+        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .compilesWithoutError()
         .and()
