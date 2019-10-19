@@ -1,5 +1,9 @@
 # Change Log
 
+## Version 1.1.1 (2019-10-18)
+
+* Fix factory method with generics #226 (#227)
+
 ## Version 1.1.0 (2019-10-15)
 
 * Adds support for property defaults, normalization, and validation via Builders (#224)
