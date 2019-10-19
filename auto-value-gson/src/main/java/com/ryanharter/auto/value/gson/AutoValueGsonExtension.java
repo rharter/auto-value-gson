@@ -75,6 +75,7 @@ import static javax.lang.model.element.Modifier.VOLATILE;
 public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+  private static final String USE_FIELD_NAME_POLICY = "autovaluemoshi.useFieldNamePolicy";
 
   static class Property {
 
@@ -159,9 +160,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
   }
 
+  private boolean useFieldNamePolicy = false;
+
   @Override
   public IncrementalExtensionType incrementalType(ProcessingEnvironment processingEnvironment) {
     return IncrementalExtensionType.ISOLATING;
+  }
+
+  @Override public Set<String> getSupportedOptions() {
+    return ImmutableSet.of(USE_FIELD_NAME_POLICY);
   }
 
   @Override
@@ -215,6 +222,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
       return false;
     } else {
+      useFieldNamePolicy = Boolean.parseBoolean(context.processingEnvironment()
+          .getOptions()
+          .getOrDefault(USE_FIELD_NAME_POLICY, "false"));
       return true;
     }
   }
