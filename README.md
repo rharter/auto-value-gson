@@ -100,6 +100,20 @@ useful for setting default values.
 }
 ```
 
+## Field name policy
+
+If you want the generated adapter classes to use the input `Gson` instance's field name policy, you can 
+enable this via `autovaluemoshi.useFieldNamePolicy` processor option. This acts as a flag (any value is ignored)
+and can be set like any other annotation processor option.
+
+In Gradle, this could look like this:
+
+```gradle
+tasks.withType(JavaCompile) {
+    options.compilerArgs += "-Aautovaluemoshi.useFieldNamePolicy"
+}
+```
+
 ## Factory
 
 Optionally, auto-value-gson can create a single [TypeAdapterFactory](https://google.github.io/gson/apidocs/com/google/gson/TypeAdapterFactory.html) so
