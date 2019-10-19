@@ -88,16 +88,22 @@ public @interface GenerateTypeAdapter {
           // Try the gson constructor
           //noinspection unchecked
           adapterCtor =
-              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class);
+              (Constructor<? extends TypeAdapter>) bindingClass.getDeclaredConstructor(Gson.class);
+          adapterCtor.setAccessible(true);
         } catch (NoSuchMethodException e) {
           // Try the gson + type[] constructor
           //noinspection unchecked
           adapterCtor =
-              (Constructor<? extends TypeAdapter>) bindingClass.getConstructor(Gson.class,
+              (Constructor<? extends TypeAdapter>) bindingClass.getDeclaredConstructor(Gson.class,
                   typeArrayClass);
+          adapterCtor.setAccessible(true);
         }
       } catch (ClassNotFoundException e) {
-        adapterCtor = findConstructorForClass(cls.getSuperclass());
+        Constructor<? extends TypeAdapter> superClassAdapter = findConstructorForClass(cls.getSuperclass());
+        if (superClassAdapter != null) {
+          superClassAdapter.setAccessible(true);
+        }
+        adapterCtor = superClassAdapter;
       } catch (NoSuchMethodException e) {
         throw new RuntimeException("Unable to find binding constructor for " + clsName, e);
       }
