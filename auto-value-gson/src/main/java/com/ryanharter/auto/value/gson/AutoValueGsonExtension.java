@@ -439,11 +439,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     ImmutableMap<TypeName, FieldSpec> adapters = createFields(properties);
-    constructor.addStatement("$1T fields = new $1T()", ParameterizedTypeName.get(ArrayList.class, String.class));
-    for (Property prop : properties) {
-      constructor.addStatement("fields.add($S)", prop.humanName);
+    if (useFieldNamePolicy) {
+      constructor.addStatement("$1T fields = new $1T()", ParameterizedTypeName.get(ArrayList.class, String.class));
+      for (Property prop : properties) {
+        constructor.addStatement("fields.add($S)", prop.humanName);
+      }
     }
-
     constructor.addStatement("this.gson = gson");
     if (useFieldNamePolicy) {
       constructor.addStatement("this.realFieldNames = $T.renameFields($T.class, fields, gson.fieldNamingStrategy())",
