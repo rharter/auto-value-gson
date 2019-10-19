@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -64,6 +65,7 @@ import javax.tools.Diagnostic;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.*;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -71,11 +73,12 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.VOLATILE;
 
+@SupportedOptions(USE_FIELD_NAME_POLICY)
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
 
   private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
-  private static final String USE_FIELD_NAME_POLICY = "autovaluemoshi.useFieldNamePolicy";
+  static final String USE_FIELD_NAME_POLICY = "autovaluemoshi.useFieldNamePolicy";
 
   static class Property {
 
@@ -167,12 +170,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return IncrementalExtensionType.ISOLATING;
   }
 
-  @Override public Set<String> getSupportedOptions() {
-    return ImmutableSet.of(USE_FIELD_NAME_POLICY);
-  }
-
   @Override
   public boolean applicable(Context context) {
+    useFieldNamePolicy = context.processingEnvironment()
+        .getOptions()
+        .containsKey(USE_FIELD_NAME_POLICY);
     // check that the class contains a non-private static method returning a TypeAdapter
     TypeElement type = context.autoValueClass();
     TypeName typeName = TypeName.get(type.asType());
@@ -222,9 +224,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
       return false;
     } else {
-      useFieldNamePolicy = Boolean.parseBoolean(context.processingEnvironment()
-          .getOptions()
-          .getOrDefault(USE_FIELD_NAME_POLICY, "false"));
       return true;
     }
   }
@@ -446,18 +445,24 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     constructor.addStatement("this.gson = gson");
-    constructor.addStatement("this.realFieldNames = $T.renameFields($T.class, fields, gson.fieldNamingStrategy())",
-        ClassName.get("com.ryanharter.auto.value.gson.internal", "Util"),
-        superClassType);
+    if (useFieldNamePolicy) {
+      constructor.addStatement("this.realFieldNames = $T.renameFields($T.class, fields, gson.fieldNamingStrategy())",
+          ClassName.get("com.ryanharter.auto.value.gson.internal", "Util"),
+          superClassType);
+    }
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
         .addModifiers(PUBLIC, FINAL)
         .superclass(superClass)
-        .addFields(adapters.values())
-        .addField(FieldSpec.builder(ParameterizedTypeName.get(Map.class, String.class, String.class), "realFieldNames", PRIVATE, FINAL).build())
-        .addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
+        .addFields(adapters.values());
+
+    if (useFieldNamePolicy) {
+      classBuilder.addField(FieldSpec.builder(ParameterizedTypeName.get(Map.class, String.class, String.class), "realFieldNames", PRIVATE, FINAL).build());
+    }
+
+    classBuilder.addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
@@ -553,8 +558,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
       if (prop.hasSerializedNameAnnotation()) {
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
-      } else {
+      } else if (useFieldNamePolicy) {
         writeMethod.addStatement("$N.name(realFieldNames.get($S))", jsonWriter, prop.humanName);
+      } else {
+        writeMethod.addStatement("$N.name($S)", jsonWriter, prop.humanName);
       }
       // for adapters handling non-primitive values, initialize the
       // adapter only when the value is actually present (non-null),
@@ -747,7 +754,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
-        readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
+        if (useFieldNamePolicy) {
+          readMethod.beginControlFlow("if (realFieldNames.get($S).equals(_name))", prop.humanName);
+        } else {
+          readMethod.beginControlFlow("if ($S.equals(_name))", prop.humanName);
+        }
         FieldSpec adapterField = adapters.get(prop.type);
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
