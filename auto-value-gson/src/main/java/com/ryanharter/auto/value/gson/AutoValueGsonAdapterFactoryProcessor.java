@@ -184,7 +184,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     TypeSpec.Builder factory = TypeSpec.classBuilder(
         ClassName.get(packageName, "AutoValueGson_" + adapterName));
     factory.addOriginatingElement(sourceElement);
-    factory.addModifiers(PUBLIC, FINAL);
+    factory.addModifiers(FINAL);
     factory.superclass(ClassName.get(packageName, qualifiedName));
 
     ParameterSpec gson = ParameterSpec.builder(Gson.class, "gson").build();
