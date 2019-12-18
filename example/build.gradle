@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 tasks.withType(JavaCompile) {
-    options.compilerArgs += "-Aautovaluemoshi.useFieldNamePolicy"
+    options.compilerArgs += "-Aautovaluegson.useFieldNamePolicy"
 }
 
 dependencies {
