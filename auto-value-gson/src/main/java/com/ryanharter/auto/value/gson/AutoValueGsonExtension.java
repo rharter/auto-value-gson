@@ -452,7 +452,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
             jsonAdapter, typeParams))
         .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
-            adapters, jsonAdapter, typeParams, builderContext, processingEnvironment));
+            adapters, jsonAdapter, typeParams, builderContext, processingEnvironment))
+        .addMethod(MethodSpec.methodBuilder("toString")
+            .addAnnotation(Override.class)
+            .addModifiers(PUBLIC)
+            .returns(String.class)
+            .addStatement("return new $T().append($S).append($S).append($S).toString()",
+                StringBuilder.class,
+                "TypeAdapter(",
+                Joiner.on(".").join(autoValueClassName.simpleNames()),
+                ")"
+            )
+            .build());
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
