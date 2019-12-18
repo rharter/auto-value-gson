@@ -42,6 +42,13 @@ public @interface GenerateTypeAdapter {
         return null;
       }
 
+      Class<?> superClass = rawType.getSuperclass();
+      if (superClass.isAnnotationPresent(GenerateTypeAdapter.class)) {
+        // We might be a generated AutoValue_ subtype. Walk up until we hit the first class that
+        // isn't annotated with GenerateTypeAdapter.
+        return (TypeAdapter<T>) gson.getAdapter(superClass);
+      }
+
       Constructor<? extends TypeAdapter> constructor = findConstructorForClass(rawType);
       if (constructor == null) {
         return null;
