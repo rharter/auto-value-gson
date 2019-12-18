@@ -89,8 +89,9 @@ public @interface GenerateTypeAdapter {
         return null;
       }
       try {
+        String nameAdjusted = cls.getName().replace("$", "_");
         Class<?> bindingClass = cls.getClassLoader()
-            .loadClass(clsName + "_GsonTypeAdapter");
+            .loadClass(nameAdjusted + "_GsonTypeAdapter");
         try {
           // Try the gson constructor
           //noinspection unchecked

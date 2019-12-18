@@ -253,7 +253,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     ClassName adapterClassName = generateExternalAdapter
-        ? ClassName.get(context.packageName(), autoValueClass.simpleName() + "_GsonTypeAdapter")
+        ? ClassName.get(context.packageName(), Joiner.on("_").join(autoValueClass.simpleNames()) + "_GsonTypeAdapter")
         : classNameClass.nestedClass("GsonTypeAdapter");
     ClassName finalSuperClass = generateExternalAdapter ? classNameClass : superclassRawType;
 
