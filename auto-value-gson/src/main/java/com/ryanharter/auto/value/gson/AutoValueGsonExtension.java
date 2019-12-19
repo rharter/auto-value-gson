@@ -426,7 +426,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
-            .addModifiers(PUBLIC)
             .addParameter(gsonParam);
 
     if (!typeParams.isEmpty()) {
@@ -455,7 +454,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
         .addTypeVariables(typeParams)
-        .addModifiers(PUBLIC, FINAL)
+        .addModifiers(FINAL)
         .superclass(superClass)
         .addFields(adapters.values());
 
