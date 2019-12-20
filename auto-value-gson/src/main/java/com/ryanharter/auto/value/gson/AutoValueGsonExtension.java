@@ -253,12 +253,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
     List<TypeVariableName> params = new ArrayList<>(typeParams.size());
     ClassName superclassRawType = ClassName.get(context.packageName(), classToExtend);
-    TypeName superclasstype = superclassRawType;
+    TypeName superClassType = superclassRawType;
     if (!typeParams.isEmpty()) {
       for (TypeParameterElement typeParam : typeParams) {
         params.add(TypeVariableName.get(typeParam));
       }
-      superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
+      superClassType = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
     }
 
     ClassName adapterClassName = generateExternalAdapter
@@ -273,6 +273,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       try {
         TypeSpec.Builder builder = typeAdapter.toBuilder();
         generatedAnnotationSpec.ifPresent(builder::addAnnotation);
+        builder.addOriginatingElement(type);
         JavaFile.builder(context.packageName(), builder.build())
             .skipJavaLangImports(true)
             .build()
@@ -288,7 +289,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return null;
     } else {
       TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
-          .superclass(superclasstype)
+          .superclass(superClassType)
           .addType(typeAdapter.toBuilder()
               .addModifiers(STATIC)
               .build())
