@@ -295,9 +295,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
               .build())
           .addMethod(generateConstructor(properties, types));
 
-      if (generatedAnnotationSpec.isPresent()) {
-        subclass.addAnnotation(generatedAnnotationSpec.get());
-      }
+      generatedAnnotationSpec.ifPresent(subclass::addAnnotation);
 
       if (!typeParams.isEmpty()) {
         subclass.addTypeVariables(params);
