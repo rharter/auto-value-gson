@@ -266,14 +266,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         : classNameClass.nestedClass("GsonTypeAdapter");
     ClassName finalSuperClass = generateExternalAdapter ? classNameClass : superclassRawType;
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, adapterClassName,
+    TypeSpec typeAdapter = createTypeAdapter(type, classNameClass, autoValueClass, adapterClassName,
         finalSuperClass, properties, params, context.builder().orElse(null), context.processingEnvironment());
 
     if (generateExternalAdapter) {
       try {
         TypeSpec.Builder builder = typeAdapter.toBuilder();
         generatedAnnotationSpec.ifPresent(builder::addAnnotation);
-        builder.addOriginatingElement(type);
         JavaFile.builder(context.packageName(), builder.build())
             .skipJavaLangImports(true)
             .build()
@@ -409,7 +408,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  private TypeSpec createTypeAdapter(ClassName className,
+  private TypeSpec createTypeAdapter(
+      TypeElement autoValueType,
+      ClassName className,
       ClassName autoValueClassName,
       ClassName gsonTypeAdapterName,
       ClassName superClassType,
@@ -452,6 +453,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
+        .addOriginatingElement(autoValueType)
         .addTypeVariables(typeParams)
         .addModifiers(FINAL)
         .superclass(superClass)
