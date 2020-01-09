@@ -47,7 +47,7 @@ dependencies {
     api project(':auto-value-gson-runtime')
     compileShaded 'com.google.auto:auto-common:0.10'
     compileShaded 'com.google.guava:guava:27.0-jre'
-    implementation 'com.squareup:javapoet:1.11.0'
+    implementation 'com.squareup:javapoet:1.12.0'
     implementation deps.gson
 
     testImplementation 'junit:junit:4.12'
