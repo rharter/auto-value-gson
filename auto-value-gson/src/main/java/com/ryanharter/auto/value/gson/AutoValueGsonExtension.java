@@ -253,12 +253,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     List<? extends TypeParameterElement> typeParams = context.autoValueClass().getTypeParameters();
     List<TypeVariableName> params = new ArrayList<>(typeParams.size());
     ClassName superclassRawType = ClassName.get(context.packageName(), classToExtend);
-    TypeName superclasstype = superclassRawType;
+    TypeName superClassType = superclassRawType;
     if (!typeParams.isEmpty()) {
       for (TypeParameterElement typeParam : typeParams) {
         params.add(TypeVariableName.get(typeParam));
       }
-      superclasstype = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
+      superClassType = ParameterizedTypeName.get(ClassName.get(context.packageName(), classToExtend), params.toArray(new TypeName[params.size()]));
     }
 
     ClassName adapterClassName = generateExternalAdapter
@@ -266,7 +266,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         : classNameClass.nestedClass("GsonTypeAdapter");
     ClassName finalSuperClass = generateExternalAdapter ? classNameClass : superclassRawType;
 
-    TypeSpec typeAdapter = createTypeAdapter(classNameClass, autoValueClass, adapterClassName,
+    TypeSpec typeAdapter = createTypeAdapter(type, classNameClass, autoValueClass, adapterClassName,
         finalSuperClass, properties, params, context.builder().orElse(null), context.processingEnvironment());
 
     if (generateExternalAdapter) {
@@ -288,15 +288,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return null;
     } else {
       TypeSpec.Builder subclass = TypeSpec.classBuilder(classNameClass)
-          .superclass(superclasstype)
+          .superclass(superClassType)
           .addType(typeAdapter.toBuilder()
               .addModifiers(STATIC)
               .build())
           .addMethod(generateConstructor(properties, types));
 
-      if (generatedAnnotationSpec.isPresent()) {
-        subclass.addAnnotation(generatedAnnotationSpec.get());
-      }
+      generatedAnnotationSpec.ifPresent(subclass::addAnnotation);
 
       if (!typeParams.isEmpty()) {
         subclass.addTypeVariables(params);
@@ -410,7 +408,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     return types;
   }
 
-  private TypeSpec createTypeAdapter(ClassName className,
+  private TypeSpec createTypeAdapter(
+      TypeElement autoValueType,
+      ClassName className,
       ClassName autoValueClassName,
       ClassName gsonTypeAdapterName,
       ClassName superClassType,
@@ -453,6 +453,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     ClassName jsonAdapter = ClassName.get(TypeAdapter.class);
     TypeSpec.Builder classBuilder = TypeSpec.classBuilder(gsonTypeAdapterName)
+        .addOriginatingElement(autoValueType)
         .addTypeVariables(typeParams)
         .addModifiers(FINAL)
         .superclass(superClass)
