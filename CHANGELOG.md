@@ -1,5 +1,13 @@
 # Change Log
 
+## Version 1.2.0 (2020-01-10)
+
+* Make generated class + constructor package private (#228)
+* Make field name policy support opt-in (#230)
+* Generate human readable helper toString() methods (#231)
+* Optimize hierarchy lookups for GenerateTypeAdapter (#232)
+* Make generated factories package private (#229)
+
 ## Version 1.1.1 (2019-10-18)
 
 * Fix factory method with generics #226 (#227)
