@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
+import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.SupportedOptions;
@@ -269,6 +270,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     TypeSpec typeAdapter = createTypeAdapter(type, classNameClass, autoValueClass, adapterClassName,
         finalSuperClass, properties, params, context.builder().orElse(null), context.processingEnvironment());
 
+    Filer filer = context.processingEnvironment().getFiler();
     if (generateExternalAdapter) {
       try {
         TypeSpec.Builder builder = typeAdapter.toBuilder();
@@ -276,13 +278,38 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         JavaFile.builder(context.packageName(), builder.build())
             .skipJavaLangImports(true)
             .build()
-            .writeTo(context.processingEnvironment().getFiler());
+            .writeTo(filer);
       } catch (IOException e) {
         context.processingEnvironment().getMessager()
             .printMessage(Diagnostic.Kind.ERROR,
                 String.format(
                     "Failed to write external TypeAdapter for element \"%s\" with reason \"%s\"",
                     type,
+                    e.getMessage()));
+      }
+
+      ClassName proguardTarget = ClassName.get(context.autoValueClass());
+      List<String> adapterConstructorParams = Lists.newArrayList();
+      typeAdapter.methodSpecs.stream().filter(MethodSpec::isConstructor).findFirst()
+          .ifPresent(c -> {
+            for (ParameterSpec p : c.parameters) {
+              adapterConstructorParams.add(proguardNameOf(p.type));
+            }
+          });
+
+      ProguardConfig proguardConfig = ProguardConfig.create(
+          proguardTarget,
+          adapterClassName,
+          adapterConstructorParams
+      );
+      try {
+        proguardConfig.writeTo(filer, context.autoValueClass());
+      } catch (IOException e) {
+        context.processingEnvironment().getMessager()
+            .printMessage(Diagnostic.Kind.ERROR,
+                String.format(
+                    "Failed to write proguard file for element \"%s\" with reason \"%s\"",
+                    context.autoValueClass(),
                     e.getMessage()));
       }
       return null;
@@ -924,6 +951,35 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       block.add("$T.$L($T.class)", WildcardUtil.class, method, target);
     } else {
       block.add("$T.class", typeArg);
+    }
+  }
+
+  @Nullable
+  private static ClassName rawType(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return (ClassName) typeName;
+    } else if (typeName instanceof ArrayTypeName) {
+      return rawType(((ArrayTypeName) typeName).componentType);
+    } else if (typeName instanceof ParameterizedTypeName) {
+      return ((ParameterizedTypeName) typeName).rawType;
+    } else if (typeName instanceof WildcardTypeName) {
+      return rawType(((WildcardTypeName) typeName).upperBounds.get(0));
+    } else {
+      return null;
+    }
+  }
+
+  private static String proguardNameOf(TypeName typeName) {
+    if (typeName instanceof ClassName) {
+      return ((ClassName) typeName).canonicalName();
+    } else if (typeName instanceof ArrayTypeName) {
+      return proguardNameOf(((ArrayTypeName) typeName).componentType) + "[]";
+    } else if (typeName instanceof ParameterizedTypeName) {
+      return ((ParameterizedTypeName) typeName).rawType.canonicalName();
+    } else if (typeName instanceof TypeVariableName) {
+      return "java.lang.Object";
+    } else {
+      throw new UnsupportedOperationException("Unrecognized TypeName type: " + typeName);
     }
   }
 }
