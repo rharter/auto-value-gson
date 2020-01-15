@@ -1,12 +1,23 @@
 package com.ryanharter.auto.value.gson;
 
 import com.google.auto.value.processor.AutoValueProcessor;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.Writer;
+import java.net.URI;
+import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Collections;
 import javax.tools.JavaFileObject;
+import javax.tools.SimpleJavaFileObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,6 +29,7 @@ import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
+import static javax.tools.JavaFileObject.Kind.OTHER;
 
 @RunWith(JUnit4.class)
 public class AutoValueGsonExtensionTest {
@@ -487,6 +499,246 @@ public class AutoValueGsonExtensionTest {
         .compilesWithoutError()
         .and()
         .generatesSources(expected);
+  }
+
+  @Test
+  public void simpleExternal() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.ryanharter.auto.value.gson.GenerateTypeAdapter;\n"
+        + "@GenerateTypeAdapter\n"
+        + "@AutoValue\n"
+        + "abstract class Test {\n"
+        + "  abstract String a();\n"
+        + "}\n"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/Test_GsonTypeAdapter",
+        "package test;\n"
+        + "\n"
+        + "import com.google.gson.Gson;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.stream.JsonReader;\n"
+        + "import com.google.gson.stream.JsonToken;\n"
+        + "import com.google.gson.stream.JsonWriter;\n"
+        + "import java.io.IOException;\n"
+        + "import javax.annotation.Generated;\n"
+        + "\n"
+        + "@Generated(\n"
+        + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
+        + "    comments = \"https://github.com/rharter/auto-value-gson\"\n"
+        + ")\n"
+        + "final class Test_GsonTypeAdapter extends TypeAdapter<Test> {\n"
+        + "  private volatile TypeAdapter<String> string_adapter;\n"
+        + "\n"
+        + "  private final Gson gson;\n"
+        + "\n"
+        + "  Test_GsonTypeAdapter(Gson gson) {\n"
+        + "    this.gson = gson;\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  @SuppressWarnings(\"unchecked\")\n"
+        + "  public void write(JsonWriter jsonWriter, Test object) throws IOException {\n"
+        + "    if (object == null) {\n"
+        + "      jsonWriter.nullValue();\n"
+        + "      return;\n"
+        + "    }\n"
+        + "    jsonWriter.beginObject();\n"
+        + "    jsonWriter.name(\"a\");\n"
+        + "    if (object.a() == null) {\n"
+        + "      jsonWriter.nullValue();\n"
+        + "    } else {\n"
+        + "      TypeAdapter<String> string_adapter = this.string_adapter;\n"
+        + "      if (string_adapter == null) {\n"
+        + "        this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
+        + "      }\n"
+        + "      string_adapter.write(jsonWriter, object.a());\n"
+        + "    }\n"
+        + "    jsonWriter.endObject();\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  @SuppressWarnings(\"unchecked\")\n"
+        + "  public Test read(JsonReader jsonReader) throws IOException {\n"
+        + "    if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "      jsonReader.nextNull();\n"
+        + "      return null;\n"
+        + "    }\n"
+        + "    jsonReader.beginObject();\n"
+        + "    String a = null;\n"
+        + "    while (jsonReader.hasNext()) {\n"
+        + "      String _name = jsonReader.nextName();\n"
+        + "      if (jsonReader.peek() == JsonToken.NULL) {\n"
+        + "        jsonReader.nextNull();\n"
+        + "        continue;\n"
+        + "      }\n"
+        + "      switch (_name) {\n"
+        + "        default: {\n"
+        + "          if (\"a\".equals(_name)) {\n"
+        + "            TypeAdapter<String> string_adapter = this.string_adapter;\n"
+        + "            if (string_adapter == null) {\n"
+        + "              this.string_adapter = string_adapter = gson.getAdapter(String.class);\n"
+        + "            }\n"
+        + "            a = string_adapter.read(jsonReader);\n"
+        + "            continue;\n"
+        + "          }\n"
+        + "          jsonReader.skipValue();\n"
+        + "        }\n"
+        + "      }\n"
+        + "    }\n"
+        + "    jsonReader.endObject();\n"
+        + "    return new AutoValue_Test(a);\n"
+        + "  }\n"
+        + "\n"
+        + "  @Override\n"
+        + "  public String toString() {\n"
+        + "    return new StringBuilder().append(\"TypeAdapter(\").append(\"Test\").append(\")\").toString();\n"
+        + "  }\n"
+        + "}\n"
+    );
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avm-test.Test.pro",
+        "-if class test.Test\n"
+            + "-keepnames class test.Test\n"
+            + "-if class test.Test\n"
+            + "-keep class test.Test_GsonTypeAdapter {\n"
+            + "    <init>(com.google.gson.Gson);\n"
+            + "}\n");
+
+    assertAbout(javaSources())
+        .that(ImmutableList.of(source))
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
+  }
+
+  @Test
+  public void simpleExternalGeneric() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.ryanharter.auto.value.gson.GenerateTypeAdapter;\n"
+        + "@GenerateTypeAdapter\n"
+        + "@AutoValue\n"
+        + "abstract class Test<T> {\n"
+        + "  abstract T a();\n"
+        + "}\n"
+    );
+
+    JavaFileObject expected = JavaFileObjects.forSourceString("test/Test_GsonTypeAdapter",
+            "package test;\n"
+            + "\n"
+            + "import com.google.gson.Gson;\n"
+            + "import com.google.gson.TypeAdapter;\n"
+            + "import com.google.gson.reflect.TypeToken;\n"
+            + "import com.google.gson.stream.JsonReader;\n"
+            + "import com.google.gson.stream.JsonToken;\n"
+            + "import com.google.gson.stream.JsonWriter;\n"
+            + "import java.io.IOException;\n"
+            + "import java.lang.reflect.Type;\n"
+            + "import javax.annotation.Generated;\n"
+            + "\n"
+            + "@Generated(\n"
+            + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
+            + "    comments = \"https://github.com/rharter/auto-value-gson\"\n"
+            + ")\n"
+            + "final class Test_GsonTypeAdapter<T> extends TypeAdapter<Test<T>> {\n"
+            + "  private volatile TypeAdapter<T> T_adapter;\n"
+            + "\n"
+            + "  private final Gson gson;\n"
+            + "\n"
+            + "  private final Type[] typeArgs;\n"
+            + "\n"
+            + "  Test_GsonTypeAdapter(Gson gson, Type[] types) {\n"
+            + "    typeArgs = types;\n"
+            + "    this.gson = gson;\n"
+            + "  }\n"
+            + "\n"
+            + "  @Override\n"
+            + "  @SuppressWarnings(\"unchecked\")\n"
+            + "  public void write(JsonWriter jsonWriter, Test<T> object) throws IOException {\n"
+            + "    if (object == null) {\n"
+            + "      jsonWriter.nullValue();\n"
+            + "      return;\n"
+            + "    }\n"
+            + "    jsonWriter.beginObject();\n"
+            + "    jsonWriter.name(\"a\");\n"
+            + "    if (object.a() == null) {\n"
+            + "      jsonWriter.nullValue();\n"
+            + "    } else {\n"
+            + "      TypeAdapter<T> T_adapter = this.T_adapter;\n"
+            + "      if (T_adapter == null) {\n"
+            + "        this.T_adapter = T_adapter = (TypeAdapter<T>) gson.getAdapter(TypeToken"
+            + ".get(typeArgs[0]));\n"
+            + "      }\n"
+            + "      T_adapter.write(jsonWriter, object.a());\n"
+            + "    }\n"
+            + "    jsonWriter.endObject();\n"
+            + "  }\n"
+            + "\n"
+            + "  @Override\n"
+            + "  @SuppressWarnings(\"unchecked\")\n"
+            + "  public Test<T> read(JsonReader jsonReader) throws IOException {\n"
+            + "    if (jsonReader.peek() == JsonToken.NULL) {\n"
+            + "      jsonReader.nextNull();\n"
+            + "      return null;\n"
+            + "    }\n"
+            + "    jsonReader.beginObject();\n"
+            + "    T a = null;\n"
+            + "    while (jsonReader.hasNext()) {\n"
+            + "      String _name = jsonReader.nextName();\n"
+            + "      if (jsonReader.peek() == JsonToken.NULL) {\n"
+            + "        jsonReader.nextNull();\n"
+            + "        continue;\n"
+            + "      }\n"
+            + "      switch (_name) {\n"
+            + "        default: {\n"
+            + "          if (\"a\".equals(_name)) {\n"
+            + "            TypeAdapter<T> T_adapter = this.T_adapter;\n"
+            + "            if (T_adapter == null) {\n"
+            + "              this.T_adapter = T_adapter = (TypeAdapter<T>) gson.getAdapter(TypeToken.get(typeArgs[0]));\n"
+            + "            }\n"
+            + "            a = T_adapter.read(jsonReader);\n"
+            + "            continue;\n"
+            + "          }\n"
+            + "          jsonReader.skipValue();\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "    jsonReader.endObject();\n"
+            + "    return new AutoValue_Test<>(a);\n"
+            + "  }\n"
+            + "\n"
+            + "  @Override\n"
+            + "  public String toString() {\n"
+            + "    return new StringBuilder().append(\"TypeAdapter(\").append(\"Test\").append(\")\").toString();\n"
+            + "  }\n"
+            + "}"
+    );
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avm-test.Test.pro",
+        "-if class test.Test\n"
+            + "-keepnames class test.Test\n"
+            + "-if class test.Test\n"
+            + "-keep class test.Test_GsonTypeAdapter {\n"
+            + "    <init>(com.google.gson.Gson,java.lang.reflect.Type[]);\n"
+            + "}\n");
+
+    assertAbout(javaSources())
+        .that(ImmutableList.of(source))
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesSources(expected)
+        .and()
+        .generatesFiles(expectedProguard);
   }
 
   @Test
@@ -2345,5 +2597,51 @@ public class AutoValueGsonExtensionTest {
         .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
         .failsToCompile()
         .withErrorContaining("Required property cannot be transient!");
+  }
+
+  private static JavaFileObject proguardResource(String path, String source) {
+    return new ResourceFile(path, source);
+  }
+
+  private static class ResourceFile extends SimpleJavaFileObject {
+
+    final String source;
+    final long lastModified;
+
+    ResourceFile(String path, String source) {
+      super(URI.create(path), OTHER);
+      this.source = source;
+      this.lastModified = System.currentTimeMillis();
+    }
+
+    @Override
+    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+      return source;
+    }
+
+    @Override
+    public OutputStream openOutputStream() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public InputStream openInputStream() {
+      return new ByteArrayInputStream(source.getBytes(Charset.defaultCharset()));
+    }
+
+    @Override
+    public Writer openWriter() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public Reader openReader(boolean ignoreEncodingErrors) {
+      return new StringReader(source);
+    }
+
+    @Override
+    public long getLastModified() {
+      return lastModified;
+    }
   }
 }
