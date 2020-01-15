@@ -154,10 +154,13 @@ package. The name of this class will be the AutoValue class's name plus `_GsonTy
 
 Types annotated with this can also be (de)serialized dynamically at runtime with a provided runtime `TypeAdapterFactory`
 implementation in the annotation called `FACTORY`. The type name and generated typeadapter class's name *must not be obfuscated*
-for this to work.
+for this to work. The extension that runs during annotation processing will automatically generate custom
+.pro rules for Proguard/R8 for this, so it should require no extra configuration.
 
 When this annotation is used, there will be no intermediate AutoValue class generated (as opposed to the default logic, 
-which generates an intermediate class and generates the `TypeAdapter` as a static inner class of it).
+which generates an intermediate class and generates the `TypeAdapter` as a static inner class of it). There is no need
+to declare a static `TypeAdapter<...> typeAdapter()` method anymore for this case, though you can optionally define
+one if you still want to use the `@GsonTypeAdapterFactory` generator for them.
 
 `@GenerateTypeAdapter` is compatible with the factory approach above, just make your static method's implementation
 point to it. It can also be an alternative to it if you use the runtime factory, particularly if you 
@@ -173,9 +176,6 @@ Example usage:
 @AutoValue
 public class Foo {
   // ...
-  public static TypeAdapter<Foo> typeAdapter(Gson gson) {
-    return new Foo_GsonTypeAdapter(gson);
-  }
 }
 
 // Generates
@@ -190,9 +190,6 @@ public final class Foo_GsonTypeAdapter extends TypeAdapter<Foo> {
 @AutoValue
 public class Foo<T> {
   // ...
-  public static TypeAdapter<Foo> typeAdapter(Gson gson, TypeToken<? extends Foo<T>> typeToken) {
-    return new Foo_GsonTypeAdapter(gson, typeToken);
-  }
 }
 
 // Generates
@@ -208,34 +205,6 @@ new GsonBuilder()
     .build()
     .toJson(myFooInstance);
 ```
-
-### R8 / ProGuard
-
-If you are using R8 or ProGuard add the options from [this file](https://github.com/rharter/auto-value-gson/blob/master/auto-value-gson-runtime/src/main/resources/META-INF/proguard/autovaluegson.pro).
-
-#### If using Android
-
-Android Gradle Plugin 3.3.0+ will automatically extract these rules. Note that for proguard support, you must use ProGuard 6.1.0beta2 or later.
-
-Set `android.proguard.enableRulesExtraction=false` and then copy the proguard rules to your project like described above.
-
-OR
-
-Upgrade proguard to 6.1.0beta2:
-
-```groovy
-buildscript {
-    configurations.all {
-        resolutionStrategy {
-            force 'net.sf.proguard:proguard-gradle:6.1.0beta2'
-        }
-    }
-}
-```
-
-OR
-
-Enable R8 by setting `android.enableR8=true`.
 
 ## Download
 
