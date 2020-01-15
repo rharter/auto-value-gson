@@ -15,7 +15,6 @@ import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.Collections;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import org.junit.Before;
