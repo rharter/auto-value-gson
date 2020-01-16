@@ -1,4 +1,4 @@
-package com.ryanharter.auto.value.gson;
+package com.ryanharter.auto.value.gson.factory;
 
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
@@ -9,6 +9,8 @@ import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
+import com.ryanharter.auto.value.gson.AutoValueGsonExtension;
+import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -88,8 +90,8 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .map(e -> (TypeElement) e)
         .filter(e -> extension.applicable(new LimitedContext(processingEnv, (TypeElement) e)))
         .sorted((o1, o2) -> {
-          final String o1Name = classNameOf((TypeElement)o1, ".");
-          final String o2Name = classNameOf((TypeElement)o2, ".");
+          final String o1Name = classNameOf(o1, ".");
+          final String o2Name = classNameOf(o2, ".");
           return o1Name.compareTo(o2Name);
         })
         .collect(Collectors.toList());
@@ -135,6 +137,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(e).equals(packageElement)) {
                   return false;
                 }
@@ -151,6 +154,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(adapterMethod).equals(packageElement)) {
                   return false;
                 }
@@ -219,7 +223,6 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       } else {
         create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementType);
       }
-      //noinspection ConstantConditions We've filtered absent ones
       ExecutableElement typeAdapterMethod = pair.second;
       List<? extends VariableElement> params = typeAdapterMethod.getParameters();
       if (params == null || params.size() == 0) {
@@ -326,20 +329,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
    * by a delimiter.
    */
   private static String classNameOf(TypeElement type, String delimiter) {
-    String name = type.getSimpleName().toString();
+    StringBuilder name = new StringBuilder(type.getSimpleName().toString());
     while (type.getEnclosingElement() instanceof TypeElement) {
       type = (TypeElement) type.getEnclosingElement();
-      name = type.getSimpleName() + delimiter + name;
+      name.insert(0, type.getSimpleName() + delimiter);
     }
-    return name;
-  }
-
-  /**
-   * Returns the name of the package that the given type is in. If the type is in the default
-   * (unnamed) package then the name is the empty string.
-   */
-  private static String packageNameOf(TypeElement type) {
-    return packageElementOf(type).getQualifiedName().toString();
+    return name.toString();
   }
 
   /**
@@ -347,6 +342,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
    * (unnamed) package then the name is the empty string.
    */
   private static PackageElement packageElementOf(TypeElement type) {
+    //noinspection UnstableApiUsage
     return getPackage(type);
   }
 

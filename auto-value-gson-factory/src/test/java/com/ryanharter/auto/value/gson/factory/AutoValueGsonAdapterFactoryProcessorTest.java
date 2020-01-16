@@ -1,4 +1,4 @@
-package com.ryanharter.auto.value.gson;
+package com.ryanharter.auto.value.gson.factory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.compile.JavaFileObjects;
