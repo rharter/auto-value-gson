@@ -180,10 +180,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   public static boolean isApplicable(TypeElement type, Messager messager) {
-    @SuppressWarnings("UnstableApiUsage")
-    boolean generateExternalAdapter =
-        MoreElements.isAnnotationPresent(type, GenerateTypeAdapter.class);
-    if (generateExternalAdapter) {
+    //noinspection UnstableApiUsage
+    if (MoreElements.isAnnotationPresent(type, GenerateTypeAdapter.class)) {
       return true;
     }
 
