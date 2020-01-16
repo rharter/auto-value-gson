@@ -3,7 +3,6 @@ package com.ryanharter.auto.value.gson.factory;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -23,7 +22,6 @@ import com.squareup.javapoet.TypeVariableName;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -343,37 +341,6 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
   private static PackageElement packageElementOf(TypeElement type) {
     //noinspection UnstableApiUsage
     return getPackage(type);
-  }
-
-  private static class LimitedContext implements AutoValueExtension.Context {
-    private final ProcessingEnvironment processingEnvironment;
-    private final TypeElement autoValueClass;
-
-    public LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
-      this.processingEnvironment = processingEnvironment;
-      this.autoValueClass = autoValueClass;
-    }
-
-    @Override public ProcessingEnvironment processingEnvironment() {
-      return processingEnvironment;
-    }
-
-    @Override public String packageName() {
-      return processingEnvironment().getElementUtils()
-          .getPackageOf(autoValueClass).getQualifiedName().toString();
-    }
-
-    @Override public TypeElement autoValueClass() {
-      return autoValueClass;
-    }
-
-    @Override public Map<String, ExecutableElement> properties() {
-      return null;
-    }
-
-    @Override public Set<ExecutableElement> abstractMethods() {
-      return null;
-    }
   }
 
   private static class Pair<F, S> {
