@@ -61,7 +61,6 @@ import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATI
 @AutoService(Processor.class)
 public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
-  private final AutoValueGsonExtension extension = new AutoValueGsonExtension();
   private Types typeUtils;
   private Elements elementUtils;
 
@@ -88,7 +87,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
     List<TypeElement> elements = autoValueElements.stream()
         .map(e -> (TypeElement) e)
-        .filter(e -> extension.applicable(new LimitedContext(processingEnv, (TypeElement) e)))
+        .filter(e -> AutoValueGsonExtension.isApplicable(e, processingEnv.getMessager()))
         .sorted((o1, o2) -> {
           final String o1Name = classNameOf(o1, ".");
           final String o2Name = classNameOf(o2, ".");
