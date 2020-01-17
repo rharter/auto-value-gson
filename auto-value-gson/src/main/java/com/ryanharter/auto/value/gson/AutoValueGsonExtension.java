@@ -78,7 +78,7 @@ import static javax.lang.model.element.Modifier.VOLATILE;
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
 
-  private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+  public static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
   static final String USE_FIELD_NAME_POLICY = "autovaluegson.useFieldNamePolicy";
 
   static class Property {
@@ -176,12 +176,19 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     useFieldNamePolicy = context.processingEnvironment()
         .getOptions()
         .containsKey(USE_FIELD_NAME_POLICY);
+    return isApplicable(context.autoValueClass(), context.processingEnvironment().getMessager());
+  }
+
+  public static boolean isApplicable(TypeElement type, Messager messager) {
+    //noinspection UnstableApiUsage
+    if (MoreElements.isAnnotationPresent(type, GenerateTypeAdapter.class)) {
+      return true;
+    }
+
     // check that the class contains a non-private static method returning a TypeAdapter
-    TypeElement type = context.autoValueClass();
     TypeName typeName = TypeName.get(type.asType());
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
         ClassName.get(TypeAdapter.class), typeName);
-    boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     TypeName returnedTypeAdapter = null;
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
@@ -192,41 +199,36 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         }
 
         if (returnType.equals(typeAdapterType.rawType)
-          || (returnType instanceof ParameterizedTypeName
+            || (returnType instanceof ParameterizedTypeName
             && ((ParameterizedTypeName) returnType).rawType.equals(typeAdapterType.rawType))) {
           returnedTypeAdapter = returnType;
         }
       }
     }
 
-    if (returnedTypeAdapter == null && !generateExternalAdapter) {
+    if (returnedTypeAdapter == null) {
       return false;
     }
 
-    if (returnedTypeAdapter != null) {
-      // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
-      Messager messager = context.processingEnvironment().getMessager();
-      if (returnedTypeAdapter instanceof ParameterizedTypeName) {
-        ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
-        TypeName argument = paramReturnType.typeArguments.get(0);
+    // emit a warning if the user added a method returning a TypeAdapter, but not of the right type
+    if (returnedTypeAdapter instanceof ParameterizedTypeName) {
+      ParameterizedTypeName paramReturnType = (ParameterizedTypeName) returnedTypeAdapter;
+      TypeName argument = paramReturnType.typeArguments.get(0);
 
-        // If the original type uses generics, user's don't have to nest the generic type args
-        if (typeName instanceof ParameterizedTypeName) {
-          ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
-          return pTypeName.rawType.equals(argument);
-        } else {
-          messager.printMessage(Diagnostic.Kind.WARNING,
-              String.format("Found static method returning TypeAdapter<%s> on %s class. "
-                  + "Skipping GsonTypeAdapter generation.", argument, type));
-        }
+      // If the original type uses generics, user's don't have to nest the generic type args
+      if (typeName instanceof ParameterizedTypeName) {
+        ParameterizedTypeName pTypeName = (ParameterizedTypeName) typeName;
+        return pTypeName.rawType.equals(argument);
       } else {
-        messager.printMessage(Diagnostic.Kind.WARNING, "Found static method returning "
-            + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
+        messager.printMessage(Diagnostic.Kind.WARNING,
+            String.format("Found static method returning TypeAdapter<%s> on %s class. "
+                + "Skipping GsonTypeAdapter generation.", argument, type));
       }
-      return false;
     } else {
-      return true;
+      messager.printMessage(Diagnostic.Kind.WARNING, "Found static method returning "
+          + "TypeAdapter with no type arguments, skipping GsonTypeAdapter generation.");
     }
+    return false;
   }
 
   @Override

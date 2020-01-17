@@ -1,14 +1,16 @@
-package com.ryanharter.auto.value.gson;
+package com.ryanharter.auto.value.gson.factory;
 
+import com.google.auto.common.GeneratedAnnotations;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
+import com.ryanharter.auto.value.gson.AutoValueGsonExtension;
+import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -21,7 +23,7 @@ import com.squareup.javapoet.TypeVariableName;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -42,6 +44,7 @@ import javax.lang.model.util.Types;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import static com.google.auto.common.MoreElements.getPackage;
+import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.GENERATED_COMMENTS;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -59,7 +62,6 @@ import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATI
 @AutoService(Processor.class)
 public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
 
-  private final AutoValueGsonExtension extension = new AutoValueGsonExtension();
   private Types typeUtils;
   private Elements elementUtils;
 
@@ -86,10 +88,10 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
     List<TypeElement> elements = autoValueElements.stream()
         .map(e -> (TypeElement) e)
-        .filter(e -> extension.applicable(new LimitedContext(processingEnv, (TypeElement) e)))
+        .filter(e -> AutoValueGsonExtension.isApplicable(e, processingEnv.getMessager()))
         .sorted((o1, o2) -> {
-          final String o1Name = classNameOf((TypeElement)o1, ".");
-          final String o2Name = classNameOf((TypeElement)o2, ".");
+          final String o1Name = classNameOf(o1, ".");
+          final String o2Name = classNameOf(o2, ".");
           return o1Name.compareTo(o2Name);
         })
         .collect(Collectors.toList());
@@ -135,6 +137,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(e).equals(packageElement)) {
                   return false;
                 }
@@ -151,6 +154,7 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
                 return false;
               case DEFAULT:
               case PROTECTED:
+                //noinspection UnstableApiUsage
                 if (!getPackage(adapterMethod).equals(packageElement)) {
                   return false;
                 }
@@ -175,6 +179,13 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
+  private static AnnotationSpec createGeneratedAnnotationSpec(TypeElement generatedAnnotationTypeElement) {
+    return AnnotationSpec.builder(ClassName.get(generatedAnnotationTypeElement))
+        .addMember("value", "$S", AutoValueGsonAdapterFactoryProcessor.class.getName())
+        .addMember("comments", "$S", GENERATED_COMMENTS)
+        .build();
+  }
+
   private TypeSpec createTypeAdapterFactory(
       TypeElement sourceElement,
       List<TypeElement> elements,
@@ -183,6 +194,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       String qualifiedName) {
     TypeSpec.Builder factory = TypeSpec.classBuilder(
         ClassName.get(packageName, "AutoValueGson_" + adapterName));
+    Optional<AnnotationSpec> generatedAnnotationSpec =
+        GeneratedAnnotations.generatedAnnotation(processingEnv.getElementUtils(),
+            processingEnv.getSourceVersion())
+            .map(AutoValueGsonAdapterFactoryProcessor::createGeneratedAnnotationSpec);
+    generatedAnnotationSpec.ifPresent(factory::addAnnotation);
+
     factory.addOriginatingElement(sourceElement);
     factory.addModifiers(FINAL);
     factory.superclass(ClassName.get(packageName, qualifiedName));
@@ -219,7 +236,6 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       } else {
         create.nextControlFlow("else if ($T.class.isAssignableFrom(rawType))", elementType);
       }
-      //noinspection ConstantConditions We've filtered absent ones
       ExecutableElement typeAdapterMethod = pair.second;
       List<? extends VariableElement> params = typeAdapterMethod.getParameters();
       if (params == null || params.size() == 0) {
@@ -326,20 +342,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
    * by a delimiter.
    */
   private static String classNameOf(TypeElement type, String delimiter) {
-    String name = type.getSimpleName().toString();
+    StringBuilder name = new StringBuilder(type.getSimpleName().toString());
     while (type.getEnclosingElement() instanceof TypeElement) {
       type = (TypeElement) type.getEnclosingElement();
-      name = type.getSimpleName() + delimiter + name;
+      name.insert(0, type.getSimpleName() + delimiter);
     }
-    return name;
-  }
-
-  /**
-   * Returns the name of the package that the given type is in. If the type is in the default
-   * (unnamed) package then the name is the empty string.
-   */
-  private static String packageNameOf(TypeElement type) {
-    return packageElementOf(type).getQualifiedName().toString();
+    return name.toString();
   }
 
   /**
@@ -347,38 +355,8 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
    * (unnamed) package then the name is the empty string.
    */
   private static PackageElement packageElementOf(TypeElement type) {
+    //noinspection UnstableApiUsage
     return getPackage(type);
-  }
-
-  private static class LimitedContext implements AutoValueExtension.Context {
-    private final ProcessingEnvironment processingEnvironment;
-    private final TypeElement autoValueClass;
-
-    public LimitedContext(ProcessingEnvironment processingEnvironment, TypeElement autoValueClass) {
-      this.processingEnvironment = processingEnvironment;
-      this.autoValueClass = autoValueClass;
-    }
-
-    @Override public ProcessingEnvironment processingEnvironment() {
-      return processingEnvironment;
-    }
-
-    @Override public String packageName() {
-      return processingEnvironment().getElementUtils()
-          .getPackageOf(autoValueClass).getQualifiedName().toString();
-    }
-
-    @Override public TypeElement autoValueClass() {
-      return autoValueClass;
-    }
-
-    @Override public Map<String, ExecutableElement> properties() {
-      return null;
-    }
-
-    @Override public Set<ExecutableElement> abstractMethods() {
-      return null;
-    }
   }
 
   private static class Pair<F, S> {

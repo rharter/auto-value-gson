@@ -213,6 +213,9 @@ Add a Gradle dependency to the `apt` and `provided` configuration.
 ```kotlin
 annotationProcessor("com.ryanharter.auto.value:auto-value-gson:1.2.0")
 implementation("com.ryanharter.auto.value:auto-value-gson-runtime:1.2.0")
+
+// Optional @GsonTypeAdapterFactory support
+annotationProcessor("com.ryanharter.auto.value:auto-value-gson-factory:1.2.0")
 ```
 
 Snapshots of the latest development version are available in [Sonatype's `snapshots` repository](https://oss.sonatype.org/content/repositories/snapshots/).

@@ -7,6 +7,7 @@ tasks.withType(JavaCompile) {
 dependencies {
     annotationProcessor 'com.google.auto.value:auto-value:1.7'
     annotationProcessor project(':auto-value-gson')
+    annotationProcessor project(':auto-value-gson-factory')
     compileOnly project(':auto-value-gson')
     compileOnly 'com.google.auto.value:auto-value-annotations:1.7'
     compile 'com.google.code.gson:gson:2.8.6'
@@ -15,5 +16,6 @@ dependencies {
     testCompile 'junit:junit:4.12'
     testAnnotationProcessor 'com.google.auto.value:auto-value:1.7'
     testAnnotationProcessor project(':auto-value-gson')
+    testAnnotationProcessor project(':auto-value-gson-factory')
     testCompileOnly 'com.google.auto.value:auto-value-annotations:1.7'
 }
