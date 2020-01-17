@@ -1,2 +1,2 @@
-include ':example', ':auto-value-gson', ':auto-value-gson-factory', ':auto-value-gson-runtime'
+include ':example', ':auto-value-gson-extension', ':auto-value-gson-factory', ':auto-value-gson-runtime'
 

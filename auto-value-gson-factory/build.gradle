@@ -43,7 +43,7 @@ dependencies {
     compileOnly 'com.google.auto.service:auto-service:1.0-rc5'
 
     api 'com.google.auto.value:auto-value-annotations:1.7'
-    api project(':auto-value-gson')
+    api project(':auto-value-gson-extension')
     compileShaded 'com.google.auto:auto-common:0.10'
     compileShaded 'com.google.guava:guava:27.0-jre'
     implementation 'com.squareup:javapoet:1.12.0'
