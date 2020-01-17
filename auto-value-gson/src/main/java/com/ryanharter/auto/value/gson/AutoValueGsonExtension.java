@@ -78,7 +78,7 @@ import static javax.lang.model.element.Modifier.VOLATILE;
 @AutoService(AutoValueExtension.class)
 public class AutoValueGsonExtension extends AutoValueExtension {
 
-  private static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
+  public static final String GENERATED_COMMENTS = "https://github.com/rharter/auto-value-gson";
   static final String USE_FIELD_NAME_POLICY = "autovaluegson.useFieldNamePolicy";
 
   static class Property {

@@ -1,5 +1,6 @@
 package com.ryanharter.auto.value.gson.factory;
 
+import com.google.auto.common.GeneratedAnnotations;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -22,6 +23,7 @@ import com.squareup.javapoet.TypeVariableName;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -42,6 +44,7 @@ import javax.lang.model.util.Types;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
 
 import static com.google.auto.common.MoreElements.getPackage;
+import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.GENERATED_COMMENTS;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -176,6 +179,13 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     return false;
   }
 
+  private static AnnotationSpec createGeneratedAnnotationSpec(TypeElement generatedAnnotationTypeElement) {
+    return AnnotationSpec.builder(ClassName.get(generatedAnnotationTypeElement))
+        .addMember("value", "$S", AutoValueGsonAdapterFactoryProcessor.class.getName())
+        .addMember("comments", "$S", GENERATED_COMMENTS)
+        .build();
+  }
+
   private TypeSpec createTypeAdapterFactory(
       TypeElement sourceElement,
       List<TypeElement> elements,
@@ -184,6 +194,12 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
       String qualifiedName) {
     TypeSpec.Builder factory = TypeSpec.classBuilder(
         ClassName.get(packageName, "AutoValueGson_" + adapterName));
+    Optional<AnnotationSpec> generatedAnnotationSpec =
+        GeneratedAnnotations.generatedAnnotation(processingEnv.getElementUtils(),
+            processingEnv.getSourceVersion())
+            .map(AutoValueGsonAdapterFactoryProcessor::createGeneratedAnnotationSpec);
+    generatedAnnotationSpec.ifPresent(factory::addAnnotation);
+
     factory.addOriginatingElement(sourceElement);
     factory.addModifiers(FINAL);
     factory.superclass(ClassName.get(packageName, qualifiedName));
