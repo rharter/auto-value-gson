@@ -208,7 +208,7 @@ new GsonBuilder()
 
 ## Download
 
-Add a Gradle dependency to the `apt` and `provided` configuration.
+Add a Gradle dependency to the `annotationProcessor`/`kapt` and `implementation`/`api` configuration.
 
 ```kotlin
 annotationProcessor("com.ryanharter.auto.value:auto-value-gson-extension:1.2.0")
