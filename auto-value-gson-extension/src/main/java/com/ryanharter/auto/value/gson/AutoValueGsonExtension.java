@@ -49,7 +49,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import javax.annotation.Nullable;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -66,7 +65,7 @@ import javax.tools.Diagnostic;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
-import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.*;
+import static com.ryanharter.auto.value.gson.AutoValueGsonExtension.USE_FIELD_NAME_POLICY;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -84,8 +83,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   static class Property {
 
     @Nullable
-    static Property create(Messager messager, String humanName, ExecutableElement element) {
-      Property property = new Property(humanName, element);
+    static Property create(
+        Messager messager,
+        String humanName,
+        ExecutableElement element,
+        TypeMirror actualType
+    ) {
+      Property property = new Property(humanName, element, actualType);
       if (property.isTransient() && !property.nullable()) {
         messager.printMessage(Diagnostic.Kind.ERROR, "Required property cannot be transient!", element);
         return null;
@@ -98,16 +102,18 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final String humanName;
     final ExecutableElement element;
     final TypeName type;
+    final TypeName builderType;
     final ImmutableSet<String> annotations;
     final boolean nullable;
     final boolean isTransient;
 
-    private Property(String humanName, ExecutableElement element) {
+    private Property(String humanName, ExecutableElement element, TypeMirror actualType) {
       this.methodName = element.getSimpleName().toString();
       this.humanName = humanName;
       this.element = element;
 
-      type = TypeName.get(element.getReturnType());
+      type = TypeName.get(actualType);
+      builderType = TypeName.get(element.getReturnType());
       annotations = buildAnnotations(element);
       nullable = nullableAnnotation() != null;
       isTransient = element.getAnnotation(AutoTransient.class) != null;
@@ -241,7 +247,12 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     boolean generateExternalAdapter = type.getAnnotation(GenerateTypeAdapter.class) != null;
     List<Property> properties = Lists.newArrayList();
     for (Map.Entry<String, ExecutableElement> entry : context.properties().entrySet()) {
-      Property property = Property.create(context.processingEnvironment().getMessager(), entry.getKey(), entry.getValue());
+      Property property = Property.create(
+          context.processingEnvironment().getMessager(),
+          entry.getKey(),
+          entry.getValue(),
+          context.propertyTypes().get(entry.getKey())
+      );
       if (property == null) {
         return null;
       }
@@ -548,7 +559,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     // If setter param type matches field type
     Optional<MethodSpec> setter = setterMethodSpecs
         // Find setter with param type equal to field type.
-        .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.type))
+        .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.builderType))
         .findFirst();
 
     if (setter.isPresent()) {

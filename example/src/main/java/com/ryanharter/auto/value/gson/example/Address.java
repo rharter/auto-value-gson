@@ -33,7 +33,7 @@ public abstract class Address {
     }
 
     @AutoValue.Builder
-    interface Builder {
+    public interface Builder {
         Builder streetName(String streetName);
         Builder city(String city);
         Address build();
