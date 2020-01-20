@@ -1,60 +1,14 @@
-import org.gradle.internal.jvm.Jvm
-
 plugins {
-    id 'com.github.johnrengelman.shadow' version '4.0.1'
     id 'java-library'
     id 'maven-publish'
 }
-
-//<editor-fold desc="ShadowJar configuration">
-// disable default jar tasks
-configurations.runtimeOnly.artifacts.removeAll { it.archiveTask.is jar }
-tasks.getByName('jar').enabled = false
-// create extra configuration for shaded dependencies, so they're not included in the pom
-def shadedConfig = configurations.create('compileShaded')
-configurations.compileOnly.extendsFrom(shadedConfig)
-shadowJar {
-    minimize()
-    classifier = ''
-    configurations = [shadedConfig]
-    relocate 'com.google.auto.common', 'autovaluegson.shaded.com.google.auto.common'
-    relocate 'com.google.common', 'autovaluegson.shaded.com.google.common'
-    relocate 'com.google.thirdparty', 'autovaluegson.shaded.com.google.thirdparty'
-    exclude 'afu/**'
-    exclude 'org/**'
-    exclude 'com/google/errorprone/annotations/**'
-    exclude 'com/google/j2objc/annotations/**'
-    exclude 'javax/**'
-    exclude 'META-INF/maven/com.google.auto/auto-common/**'
-}
-artifacts {
-    runtime shadowJar
-    archives shadowJar
-}
-//</editor-fold>
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-    annotationProcessor "net.ltgt.gradle.incap:incap-processor:0.2"
-    annotationProcessor 'com.google.auto.service:auto-service:1.0-rc5'
-    annotationProcessor 'com.google.auto.value:auto-value:1.7'
-    compileOnly "net.ltgt.gradle.incap:incap:0.2"
-    compileOnly 'com.google.auto.service:auto-service:1.0-rc5'
-
-    api 'com.google.auto.value:auto-value:1.7'
-    api 'com.google.auto.value:auto-value-annotations:1.7'
-    api project(':auto-value-gson-runtime')
-    compileShaded 'com.google.auto:auto-common:0.10'
-    compileShaded 'com.google.guava:guava:27.0-jre'
-    implementation 'com.squareup:javapoet:1.12.0'
-    implementation deps.gson
-
-    testImplementation 'junit:junit:4.12'
-    testImplementation 'com.google.truth:truth:0.42'
-    testImplementation 'com.google.testing.compile:compile-testing:0.16'
-    testImplementation files(Jvm.current().getToolsJar())
+    api project(':auto-value-gson-extension')
+    api project(':auto-value-gson-factory')
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
