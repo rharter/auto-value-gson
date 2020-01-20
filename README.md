@@ -217,8 +217,11 @@ implementation("com.ryanharter.auto.value:auto-value-gson-runtime:1.2.0")
 // Optional @GsonTypeAdapterFactory support
 annotationProcessor("com.ryanharter.auto.value:auto-value-gson-factory:1.2.0")
 
-// Legacy generic artifact that includes both -extension and -factory above. Should not be used
-// unless necessary.
+// Legacy generic artifact that includes both -extension and -factory above. This exists to not
+// break existing users, but shouldn't be used because it includes both the -factory artifact as
+// well as the -extension artifact. This can have a negative impact on build times if you don't
+// actually use the factory support, as it is an aggregating incremental processor thus slower
+// compared to just using the isolating incremental behavior of the extension.
 annotationProcessor("com.ryanharter.auto.value:auto-value-gson:1.2.0")
 ```
 
