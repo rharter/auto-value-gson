@@ -1,5 +1,12 @@
 # Change Log
 
+## Verson 1.3.0 (2020-01-19)
+
+* Resolve materialized types in subclasses of generic types (#241)
+* Introduce legacy artifact for existing users (#239)
+* Extract factory to its own artifact (#238)
+* Generate proguard rules on-demand (#236)
+
 ## Version 1.2.0 (2020-01-10)
 
 * Make generated class + constructor package private (#228)
