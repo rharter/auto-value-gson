@@ -4,7 +4,7 @@
 
 * Resolve materialized types in subclasses of generic types (#241)
 * Extract factory to its own artifact (`auto-value-gson-factory`) (#238)
-* Rename extension artifact to `auto-value-gson-extension` and add legacy artifact with the original name (`auto-value-gson`) for existing users. The legacy artifact is empty and just depends on both the extension and factory artifacts. See README installation section for why you should move away from the legacy artifact! (#239)
+* Rename extension artifact to `auto-value-gson-extension` and add legacy artifact with the original name (`auto-value-gson`) for existing users. The legacy artifact is empty and just depends on both the extension and factory artifacts. See README ["Download"](README.md#download) section for why you should move away from the legacy artifact! (#239)
 * Generate proguard rules on-demand (#236)
 
 ## Version 1.2.0 (2020-01-10)
