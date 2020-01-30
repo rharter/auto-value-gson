@@ -599,7 +599,7 @@ public class AutoValueGsonExtensionTest {
     );
 
     JavaFileObject expectedProguard = proguardResource(
-        "META-INF/proguard/avm-test.Test.pro",
+        "META-INF/proguard/avg-test.Test.pro",
         "-if class test.Test\n"
             + "-keepnames class test.Test\n"
             + "-if class test.Test\n"
@@ -722,7 +722,7 @@ public class AutoValueGsonExtensionTest {
     );
 
     JavaFileObject expectedProguard = proguardResource(
-        "META-INF/proguard/avm-test.Test.pro",
+        "META-INF/proguard/avg-test.Test.pro",
         "-if class test.Test\n"
             + "-keepnames class test.Test\n"
             + "-if class test.Test\n"
@@ -2613,7 +2613,7 @@ public class AutoValueGsonExtensionTest {
 
 
     JavaFileObject expectedProguard = proguardResource(
-        "META-INF/proguard/avm-test.Test.InnerClass.pro",
+        "META-INF/proguard/avg-test.Test.InnerClass.pro",
         "-if class test.Test$InnerClass\n"
             + "-keepnames class test.Test$InnerClass\n"
             + "-if class test.Test$InnerClass\n"
