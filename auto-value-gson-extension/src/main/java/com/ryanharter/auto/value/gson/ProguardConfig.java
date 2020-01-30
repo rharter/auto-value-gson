@@ -59,7 +59,7 @@ abstract class ProguardConfig {
     //    <init>(...);
     // }
     //
-    String targetName = targetClass().canonicalName();
+    String targetName = targetClass().reflectionName();
     String adapterCanonicalName = adapterName().canonicalName();
     // Keep the class name for GenerateTypeAdapter.FACTORY's reflective lookup based on it
     out.append("-if class ")

@@ -2598,6 +2598,37 @@ public class AutoValueGsonExtensionTest {
         .withErrorContaining("Required property cannot be transient!");
   }
 
+  @Test public void proguardRulesShouldUseReflectionName() {
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.ryanharter.auto.value.gson.GenerateTypeAdapter;\n"
+        + "\n"
+        + "public abstract class Test {\n"
+        + "  @GenerateTypeAdapter\n"
+        + "  @AutoValue\n"
+        + "  public static abstract class InnerClass {\n"
+        + "    abstract String property();\n"
+        + "  }\n"
+        + "}");
+
+
+    JavaFileObject expectedProguard = proguardResource(
+        "META-INF/proguard/avm-test.Test.InnerClass.pro",
+        "-if class test.Test$InnerClass\n"
+            + "-keepnames class test.Test$InnerClass\n"
+            + "-if class test.Test$InnerClass\n"
+            + "-keep class test.Test_InnerClass_GsonTypeAdapter {\n"
+            + "    <init>(com.google.gson.Gson);\n"
+            + "}\n");
+
+    assertAbout(javaSources())
+        .that(ImmutableList.of(source))
+        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
+        .compilesWithoutError()
+        .and()
+        .generatesFiles(expectedProguard);
+  }
+
   private static JavaFileObject proguardResource(String path, String source) {
     return new ResourceFile(path, source);
   }
