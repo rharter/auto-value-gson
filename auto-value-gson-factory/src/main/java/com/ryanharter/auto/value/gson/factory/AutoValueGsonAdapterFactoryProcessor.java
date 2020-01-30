@@ -4,12 +4,14 @@ import com.google.auto.common.GeneratedAnnotations;
 import com.google.auto.common.Visibility;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.ryanharter.auto.value.gson.AutoValueGsonExtension;
+import com.ryanharter.auto.value.gson.ExposeToGsonTypeAdapterFactory;
 import com.ryanharter.auto.value.gson.GsonTypeAdapterFactory;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -66,7 +68,11 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
   private Elements elementUtils;
 
   @Override public Set<String> getSupportedAnnotationTypes() {
-    return ImmutableSet.of(AutoValue.class.getName(), GsonTypeAdapterFactory.class.getName());
+    return ImmutableSet.of(
+        AutoValue.class.getName(),
+        GsonTypeAdapterFactory.class.getName(),
+        ExposeToGsonTypeAdapterFactory.class.getName()
+    );
   }
 
   @Override public SourceVersion getSupportedSourceVersion() {
@@ -79,14 +85,8 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
     elementUtils = processingEnv.getElementUtils();
   }
 
-  @Override
-  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    Set<? extends Element> adapterFactories = roundEnv.getElementsAnnotatedWith(GsonTypeAdapterFactory.class);
-    if (adapterFactories.isEmpty()) {
-      return false;
-    }
-    Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
-    List<TypeElement> elements = autoValueElements.stream()
+  private List<TypeElement> extractApplicableElements(Set<? extends Element> elements) {
+    return elements.stream()
         .map(e -> (TypeElement) e)
         .filter(e -> AutoValueGsonExtension.isApplicable(e, processingEnv.getMessager()))
         .sorted((o1, o2) -> {
@@ -95,23 +95,37 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
           return o1Name.compareTo(o2Name);
         })
         .collect(Collectors.toList());
+  }
+
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    Set<? extends Element> adapterFactories = roundEnv.getElementsAnnotatedWith(GsonTypeAdapterFactory.class);
+    if (adapterFactories.isEmpty()) {
+      return false;
+    }
+    Set<? extends Element> autoValueElements = roundEnv.getElementsAnnotatedWith(AutoValue.class);
+    Set<? extends Element> exposedAdapterElements = roundEnv.getElementsAnnotatedWith(ExposeToGsonTypeAdapterFactory.class);
+    List<TypeElement> elements = ImmutableList.<TypeElement>builder()
+        .addAll(extractApplicableElements(autoValueElements))
+        .addAll(extractApplicableElements(exposedAdapterElements))
+        .build();
 
     if (elements.isEmpty()) {
       Element reportableElement = adapterFactories.iterator().next();
-      if (!autoValueElements.isEmpty()) {
+      if (!autoValueElements.isEmpty() || !exposedAdapterElements.isEmpty()) {
         processingEnv.getMessager().printMessage(ERROR,
             "Failed to write TypeAdapterFactory: Cannot generate class for this "
                 + "@GsonTypeAdapterFactory-annotated element because while @AutoValue-annotated "
-                + "elements were found on the compilation classpath, none of them contain a "
-                + "requisite public static TypeAdapter-returning signature method to opt in to "
-                + "being included in @GsonTypeAdapterFactory-generated factories. See the "
-                + "auto-value-gson README for more information on declaring these.",
+                + "or @ExposeToGsonTypeAdapterFactory elements were found on the compilation "
+                + "classpath, none of them contain a requisite public static TypeAdapter-returning "
+                + "signature method to opt in to being included in @GsonTypeAdapterFactory-generated "
+                + "factories. See the auto-value-gson README for more information on declaring these.",
             reportableElement);
       } else {
         processingEnv.getMessager().printMessage(ERROR,
             "Failed to write TypeAdapterFactory: Cannot generate class for this "
                 + "@GsonTypeAdapterFactory-annotated element because no @AutoValue-annotated "
-                + "elements were found on the compilation classpath.",
+                + "or @ExposeToGsonTypeAdapterFactory elements were found on the compilation classpath.",
             reportableElement);
       }
       return false;

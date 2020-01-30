@@ -95,6 +95,19 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "  }\n"
         + "  public abstract String getName();\n"
         + "}");
+    // Exposed to factory but isn't an auto-value-gson-extension user
+    JavaFileObject exposedToAdapterFactory = JavaFileObjects.forSourceString("test.Exposed", ""
+        + "package test;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.ryanharter.auto.value.gson.ExposeToGsonTypeAdapterFactory;\n"
+        + "@ExposeToGsonTypeAdapterFactory\n"
+        + "public abstract class Exposed {\n"
+        + "  public static TypeAdapter<Exposed> typeAdapter() {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract String getName();\n"
+        + "}");
     JavaFileObject factorySource = JavaFileObjects.forSourceString("test.MyAdapterFactory", ""
         + "package test;\n"
         + "import com.google.gson.TypeAdapterFactory;\n"
@@ -132,6 +145,8 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "      return (TypeAdapter<T>) Foo.typeAdapter(gson);\n"
         + "    } else if (PublicInOtherPackage.class.isAssignableFrom(rawType)) {\n"
         + "      return (TypeAdapter<T>) PublicInOtherPackage.typeAdapter(gson);\n"
+        + "    } else if (Exposed.class.isAssignableFrom(rawType)) {\n"
+        + "      return (TypeAdapter<T>) Exposed.typeAdapter();\n"
         + "    } else {\n"
         + "      return null;\n"
         + "    }\n"
@@ -139,7 +154,7 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
         + "}");
 
     assertAbout(javaSources())
-        .that(ImmutableSet.of(fooSource, barSource, bazSource, publicInOtherPackage, notVisibleClass, notVisibleMethod, privateMethod, factorySource))
+        .that(ImmutableSet.of(fooSource, barSource, bazSource, publicInOtherPackage, notVisibleClass, notVisibleMethod, privateMethod, exposedToAdapterFactory, factorySource))
         .processedWith(new AutoValueGsonAdapterFactoryProcessor())
         .compilesWithoutError()
         .and()
