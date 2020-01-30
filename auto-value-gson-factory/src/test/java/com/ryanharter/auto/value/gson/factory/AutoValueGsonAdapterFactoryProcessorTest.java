@@ -484,8 +484,8 @@ public class AutoValueGsonAdapterFactoryProcessorTest {
       .that(ImmutableSet.of(source1, factorySource))
       .processedWith(new AutoValueGsonAdapterFactoryProcessor())
       .failsToCompile()
-      .withErrorContaining("no @AutoValue-annotated elements were found on the "
-          + "compilation classpath");
+      .withErrorContaining("no @AutoValue-annotated or "
+          + "@ExposeToGsonTypeAdapterFactory elements were found on the compilation classpath");
   }
 
   @Test public void noAutoValueModelsWithAdapterMethods_shouldError() {
