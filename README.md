@@ -201,8 +201,8 @@ public final class Foo_GsonTypeAdapter extends TypeAdapter<Foo> {
 
 // Using the runtime FACTORY
 new GsonBuilder()
-    .addTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
-    .build()
+    .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+    .create()
     .toJson(myFooInstance);
 ```
 
