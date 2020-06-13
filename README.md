@@ -1,6 +1,6 @@
 # AutoValue: Gson Extension
 
-[![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg?branch=master)](https://travis-ci.org/rharter/auto-value-gson)
+[![Build Status](https://travis-ci.org/rharter/auto-value-gson.svg?branch=main)](https://travis-ci.org/rharter/auto-value-gson)
 
 An extension for Google's [AutoValue](https://github.com/google/auto) that creates a simple [Gson](https://github.com/google/gson) TypeAdapterFactory for each AutoValue annotated object.
 
