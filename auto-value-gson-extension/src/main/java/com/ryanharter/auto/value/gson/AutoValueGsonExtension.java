@@ -165,6 +165,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
         builder.add(annotation.getAnnotationType().asElement().toString());
       }
+      for (AnnotationMirror annotation : element.getReturnType().getAnnotationMirrors()) {
+        builder.add(annotation.getAnnotationType().asElement().toString());
+      }
 
       return builder.build();
     }
