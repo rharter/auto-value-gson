@@ -15,6 +15,8 @@ import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.TreeMap;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import org.junit.Before;
@@ -34,6 +36,7 @@ import static javax.tools.JavaFileObject.Kind.OTHER;
 public class AutoValueGsonExtensionTest {
 
   private JavaFileObject nullable;
+  private JavaFileObject typeTargetNullable;
 
   @Before
   public void setup() {
@@ -47,6 +50,17 @@ public class AutoValueGsonExtensionTest {
         + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
         + "@Retention(SOURCE)\n"
         + "@Target({METHOD, PARAMETER, FIELD})\n"
+        + "public @interface Nullable {\n"
+        + "}");
+    typeTargetNullable = JavaFileObjects.forSourceString("com.ryanharter.auto.value.gson.Nullable",
+        ""
+        + "package com.ryanharter.auto.value.gson;\n"
+        + "import java.lang.annotation.Retention;\n"
+        + "import java.lang.annotation.Target;\n"
+        + "import static java.lang.annotation.ElementType.TYPE_USE;\n"
+        + "import static java.lang.annotation.RetentionPolicy.SOURCE;\n"
+        + "@Retention(SOURCE)\n"
+        + "@Target(TYPE_USE)\n"
         + "public @interface Nullable {\n"
         + "}");
   }
@@ -2567,13 +2581,21 @@ public class AutoValueGsonExtensionTest {
         + "  }\n"
         + "}");
 
-    assertAbout(javaSources())
-        .that(Arrays.asList(nullable, source))
-        .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
-        .processedWith(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
-        .compilesWithoutError()
-        .and()
-        .generatesSources(expected);
+    Map<String, JavaFileObject> nullables = new TreeMap<>();
+    nullables.put("using method-target @Nullable", nullable);
+    nullables.put("using type-target @Nullable", typeTargetNullable);
+    nullables.forEach(
+        (nullableName, nullableObject) -> {
+          assertAbout(javaSources())
+              .that(Arrays.asList(nullableObject, source))
+              .named(nullableName)
+              .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
+              .processedWith(
+                  new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
+              .compilesWithoutError()
+              .and()
+              .generatesSources(expected);
+        });
   }
 
   @Test public void transientRequiredProperty_shouldFail() {
