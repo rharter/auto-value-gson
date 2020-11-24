@@ -836,7 +836,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("$N.endObject()", jsonReader);
 
     if (builderField.isPresent()) {
-      readMethod.addStatement("return $N.$L", builderField.get(), builderContext.buildMethod().get());
+      readMethod.addStatement("return $N.$L()", builderField.get(), builderContext.buildMethod().get().getSimpleName());
     } else {
       StringBuilder format = new StringBuilder("return new ");
       format.append(className.simpleName().replaceAll("\\$", ""));
