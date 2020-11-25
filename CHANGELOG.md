@@ -1,5 +1,12 @@
 # Change Log
 
+## Version 1.3.1 (2020-11-25)
+
+* Fix generated proguard names for inner classes (#246)
+* Use reflection name in proguardNameOf() (#247)
+* Recognize @Nullable as a TYPE_USE annotation. (#254)
+* fix read method for builder pattern. (#256)
+
 ## Verson 1.3.0 (2020-01-19)
 
 * Resolve materialized types in subclasses of generic types (#241)
