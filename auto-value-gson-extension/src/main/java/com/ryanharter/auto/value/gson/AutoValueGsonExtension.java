@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -58,9 +57,10 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -72,6 +72,7 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static javax.lang.model.element.Modifier.VOLATILE;
+import static javax.lang.model.util.ElementFilter.methodsIn;
 
 @SupportedOptions(USE_FIELD_NAME_POLICY)
 @AutoService(AutoValueExtension.class)
@@ -199,7 +200,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     ParameterizedTypeName typeAdapterType = ParameterizedTypeName.get(
         ClassName.get(TypeAdapter.class), typeName);
     TypeName returnedTypeAdapter = null;
-    for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
+    for (ExecutableElement method : methodsIn(type.getEnclosedElements())) {
       if (method.getModifiers().contains(STATIC) && !method.getModifiers().contains(PRIVATE)) {
         TypeMirror rType = method.getReturnType();
         TypeName returnType = TypeName.get(rType);
@@ -555,24 +556,122 @@ public class AutoValueGsonExtension extends AutoValueExtension {
                                              FieldSpec adapter,
                                              ParameterSpec jsonReader,
                                              FieldSpec builder,
-                                             BuilderContext builderContext) {
-    Stream<MethodSpec> setterMethodSpecs = builderContext.setters().get(prop.humanName).stream()
-        .map(setterMethod -> MethodSpec.overriding(setterMethod).build());
+                                             BuilderContext builderContext,
+                                             ProcessingEnvironment processingEnv) {
+    Set<ExecutableElement> setters = builderContext.setters().get(prop.humanName);
+    if (setters == null || setters.isEmpty()) {
+      ExecutableElement propertyBuilder = builderContext.propertyBuilders().get(prop.humanName);
+      if (propertyBuilder == null) {
+        processingEnv
+            .getMessager()
+            .printMessage(
+                Diagnostic.Kind.ERROR, "No setter or builder for " + prop.humanName, prop.element);
+      } else {
+        // This duplicates AutoValue's handling of addAll and putAll, for Guava's ImmutableList and
+        // ImmutableMap (etc). We have for example `ImmutableList<String> getFoo()` but we don't
+        // have `setFoo(ImmutableList<String>)`, we only have
+        // `ImmutableList.Builder<String> fooBuilder()`. So we need to do
+        // `builder.fooBuilder().addAll(adapter.read(jsonReader)`.
+        Set<String> methodNames =
+            methodsIn(
+                    MoreTypes.asTypeElement(propertyBuilder.getReturnType()).getEnclosedElements())
+                .stream()
+                .map(e -> e.getSimpleName().toString())
+                .collect(Collectors.toSet());
+        String addAllPutAll =
+            methodNames.contains("addAll")
+                ? "addAll"
+                : methodNames.contains("putAll")
+                    ? "putAll"
+                    : null;
+        if (addAllPutAll == null) {
+          processingEnv
+              .getMessager()
+              .printMessage(
+                  Diagnostic.Kind.ERROR,
+                  "Don't know how to get Gson values for " + prop.humanName + " into this builder",
+                  propertyBuilder);
+          return;
+        }
+        block.addStatement(
+            "$N.$N().$N($N.read($N))",
+            builder,
+            propertyBuilder.getSimpleName(),
+            addAllPutAll,
+            adapter,
+            jsonReader);
+      }
+      return;
+    }
+    // We're looking for a method that we can call with a parameter that is a value of the property
+    // type. The parameter type might be exactly the same, but it could also be a supertype.
+    // For example, AutoValue allows you to set a property of type ImmutableList<String> using a
+    // parameter of type List<String> (it generates a call to ImmutableList.copyOf).
+    // Similarly, it allows you to set a property of type Optional<String> with a parameter of type
+    // String (it generates a call to Optional.of). So we look for those cases.
+    // There's a further quirk, which is that the T in @AutoValue class Foo<T> is not the same as
+    // @AutoValue.Builder class Foo.Builder<T>, so if the return type of Foo.getBar() is
+    // ImmutableList<T> then that won't look the same as the parameter type of
+    // Foo.Builder.setBar(ImmutableList<T>). AutoValue has some tricky logic to juggle the types
+    // but here we just assume the types will work if their erasures do. Otherwise AutoValue would
+    // presumably reject the getter/setter combination with a helpful error message.
+    Types typeUtils = processingEnv.getTypeUtils();
+    TypeMirror propertyType = prop.element.getReturnType();
+    for (ExecutableElement setter : setters) {
+      if (typeUtils.isAssignable(
+              typeUtils.erasure(propertyType), typeUtils.erasure(setter.getParameters().get(0).asType()))) {
+        block.addStatement(
+            "$N.$N($N.read($N))", builder, setter.getSimpleName(), adapter, jsonReader);
+        return;
+      }
+    }
+    Optional<TypeMirror> optionalArgType = optionalArgType(propertyType, typeUtils);
+    if (optionalArgType.isPresent()) {
+      for (ExecutableElement setter : setters) {
+        if (typeUtils.isAssignable(
+            typeUtils.erasure(optionalArgType.get()), typeUtils.erasure(setter.getParameters().get(0).asType()))) {
+          // The AutoValue property is `Optional<String> foo()` but we only have a setter
+          // `setFoo(String)`.
+          // We'll generate `adapter.read(jsonReader).ifPresent(x$ -> builder.setFoo(x$))`.
+          block.addStatement(
+              "$N.read($N).ifPresent(x$$ -> $N.$N(x$$))",
+              adapter,
+              jsonReader,
+              builder,
+              setter.getSimpleName());
+          return;
+        }
+      }
+    }
+    // This shouldn't happen: AutoValue should have rejected the builder if it didn't have a way to
+    // set this property. But it may be that AutoValue has output an error message and still let
+    // this extension run.
+    String errorMsg = "Setter not found for " + prop.element;
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, errorMsg, prop.element);
+  }
 
-    // If setter param type matches field type
-    Optional<MethodSpec> setter = setterMethodSpecs
-        // Find setter with param type equal to field type.
-        .filter(methodSpec -> methodSpec.parameters.get(0).type.equals(prop.builderType))
-        .findFirst();
-
-    if (setter.isPresent()) {
-      block.addStatement("$N.$N($N.read($N))", builder, setter.get(), adapter, jsonReader);
-    } else {
-      // Optional fields are not supported.
-      // See https://github.com/rharter/auto-value-gson/issues/161
-      String errorMsg =
-          "Setter not found for " + prop.element;
-      throw new IllegalArgumentException(errorMsg);
+  private static Optional<TypeMirror> optionalArgType(TypeMirror typeMirror, Types typeUtils) {
+    if (typeMirror.getKind() != TypeKind.DECLARED) {
+      return Optional.empty();
+    }
+    TypeElement typeElement = MoreTypes.asTypeElement(typeMirror);
+    switch (typeElement.getQualifiedName().toString()) {
+      case "java.util.OptionalInt":
+        return Optional.of(typeUtils.getPrimitiveType(TypeKind.INT));
+      case "java.util.OptionalLong":
+        return Optional.of(typeUtils.getPrimitiveType(TypeKind.LONG));
+      case "java.util.OptionalDouble":
+        return Optional.of(typeUtils.getPrimitiveType(TypeKind.DOUBLE));
+      case "java.util.Optional":
+      case "com.google.common.base.Optional":
+        DeclaredType declaredType = MoreTypes.asDeclared(typeMirror);
+        // The size check is mostly in case we're looking at a raw type here.
+        if (declaredType.getTypeArguments().size() != 1) {
+          return Optional.empty();
+        }
+        return Optional.of(declaredType.getTypeArguments().get(0));
+      default:
+        return Optional.empty();
     }
   }
 
@@ -792,7 +891,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         if (builderField.isPresent()) {
-          addBuilderFieldSetting(block, prop, adapterField, jsonReader, builderField.get(), builderContext);
+          addBuilderFieldSetting(
+              block, prop, adapterField, jsonReader, builderField.get(), builderContext, processingEnvironment);
         } else {
           addFieldSetting(block, prop, fields, adapterField, jsonReader);
         }
@@ -818,7 +918,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         CodeBlock.Builder block = CodeBlock.builder();
         addConditionalAdapterAssignment(block, adapterField, prop, jsonAdapter, typeParams);
         if (builderField.isPresent()) {
-          addBuilderFieldSetting(block, prop, adapterField, jsonReader, builderField.get(), builderContext);
+          addBuilderFieldSetting(
+              block, prop, adapterField, jsonReader, builderField.get(), builderContext, processingEnvironment);
         } else {
           addFieldSetting(block, prop, fields, adapterField, jsonReader);
         }
