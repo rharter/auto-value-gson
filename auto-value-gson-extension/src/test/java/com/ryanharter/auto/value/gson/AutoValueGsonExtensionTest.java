@@ -17,6 +17,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.lang.model.SourceVersion;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import org.junit.Before;
@@ -26,6 +27,7 @@ import org.junit.runners.JUnit4;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -34,6 +36,10 @@ import static javax.tools.JavaFileObject.Kind.OTHER;
 
 @RunWith(JUnit4.class)
 public class AutoValueGsonExtensionTest {
+  private static final String GENERATED =
+      SourceVersion.latestSupported().compareTo(SourceVersion.RELEASE_8) > 0
+          ? "javax.annotation.processing.Generated"
+          : "javax.annotation.Generated";
 
   private JavaFileObject nullable;
   private JavaFileObject typeTargetNullable;
@@ -146,7 +152,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -536,7 +542,7 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.stream.JsonToken;\n"
         + "import com.google.gson.stream.JsonWriter;\n"
         + "import java.io.IOException;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -655,7 +661,7 @@ public class AutoValueGsonExtensionTest {
             + "import com.google.gson.stream.JsonWriter;\n"
             + "import java.io.IOException;\n"
             + "import java.lang.reflect.Type;\n"
-            + "import javax.annotation.Generated;\n"
+            + "import " + GENERATED + ";\n"
             + "\n"
             + "@Generated(\n"
             + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -1234,6 +1240,7 @@ public class AutoValueGsonExtensionTest {
         + "import com.google.gson.annotations.SerializedName;\n"
         + "import com.ryanharter.auto.value.gson.Nullable;\n"
         + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.common.collect.ImmutableList;\n"
         + "import com.google.common.collect.ImmutableMap;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
@@ -1244,6 +1251,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.io.IOException;\n"
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
+        + "import java.util.Optional;\n"
         + "import java.util.Set;\n"
         + "@AutoValue abstract class Test {\n"
         + "  static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
@@ -1270,7 +1278,13 @@ public class AutoValueGsonExtensionTest {
         // Nullable collection type
         + "@Nullable abstract List<? extends String> j();\n"
         // Deeply nested parameterized type
-        + "abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n" +
+        + "abstract Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o();\n"
+        // Optional<T> set by T
+        + "abstract Optional<String> p();\n"
+        // ImmutableList set with List
+        + "abstract ImmutableList<String> q();\n"
+        // ImmutableList set with ImmutableList.Builder
+        + "abstract ImmutableList<String> r();\n" +
         "  @AutoValue.Builder static abstract class Builder {\n" +
         "    abstract Builder a(String a);\n" +
         "    abstract Builder b(int[] b);\n" +
@@ -1283,6 +1297,9 @@ public class AutoValueGsonExtensionTest {
         "    abstract Builder i(String i);\n" +
         "    abstract Builder j(List<? extends String> j);\n" +
         "    abstract Builder o(Map<String, Map<String, Map<String, Map<String, Map<String, ? extends String>>>>> o);\n" +
+        "    abstract Builder p(String p);\n" +
+        "    abstract Builder q(List<String> q);\n" +
+        "    abstract ImmutableList.Builder<String> rBuilder();\n" +
         "    abstract Test build();\n" +
         "  }\n" +
         "  static class TestTypeAdapter extends TypeAdapter<String> {\n" +
@@ -1301,6 +1318,7 @@ public class AutoValueGsonExtensionTest {
 
     JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", "package test;\n"
         + "\n"
+        + "import com.google.common.collect.ImmutableList;\n"
         + "import com.google.common.collect.ImmutableMap;\n"
         + "import com.google.gson.Gson;\n"
         + "import com.google.gson.TypeAdapter;\n"
@@ -1321,8 +1339,9 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.ArrayList;\n"
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
+        + "import java.util.Optional;\n"
         + "import java.util.Set;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -1334,8 +1353,8 @@ public class AutoValueGsonExtensionTest {
         + "String i,\n"
         + "      @Nullable List<? extends String> j,\n"
         + "      Map<String, Map<String, Map<String, Map<String, Map<String, ? extends "
-        + "String>>>>> o) {\n"
-        + "    super(a, b, c, d, e, f, g, h, i, j, o);\n"
+        + "String>>>>> o, Optional<String> p, ImmutableList<String> q, ImmutableList<String> r) {\n"
+        + "    super(a, b, c, d, e, f, g, h, i, j, o, p, q, r);\n"
         + "  }\n"
         + "\n"
         + "  static final class GsonTypeAdapter extends TypeAdapter<Test> {\n"
@@ -1352,6 +1371,8 @@ public class AutoValueGsonExtensionTest {
         + "    private volatile TypeAdapter<Map<String, Map<String, Map<String, Map<String, "
         + "Map<String, ? extends String>>>>>> "
         + "map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter;\n"
+        + "    private volatile TypeAdapter<Optional<String>> optional__string_adapter;\n"
+        + "    private volatile TypeAdapter<ImmutableList<String>> immutableList__string_adapter;\n"
         + "    private final Map<String, String> realFieldNames;\n"
         + "    private final Gson gson;\n"
         + "    GsonTypeAdapter(Gson gson) {\n"
@@ -1367,6 +1388,9 @@ public class AutoValueGsonExtensionTest {
         + "      fields.add(\"i\");\n"
         + "      fields.add(\"j\");\n"
         + "      fields.add(\"o\");\n"
+        + "      fields.add(\"p\");\n"
+        + "      fields.add(\"q\");\n"
+        + "      fields.add(\"r\");\n"
         + "      this.gson = gson;\n"
         + "      this.realFieldNames = Util.renameFields($AutoValue_Test.class, fields, gson"
         + ".fieldNamingStrategy());\n"
@@ -1514,6 +1538,36 @@ public class AutoValueGsonExtensionTest {
         + "map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter"
         + ".write(jsonWriter, object.o());\n"
         + "      }\n"
+        + "      jsonWriter.name(realFieldNames.get(\"p\"));\n"
+        + "      if (object.p() == null) {\n"
+        + "        jsonWriter.nullValue();\n"
+        + "       } else {\n"
+        + "        TypeAdapter<Optional<String>> optional__string_adapter = this.optional__string_adapter;\n"
+        + "        if (optional__string_adapter == null) {\n"
+        + "          this.optional__string_adapter = optional__string_adapter = (TypeAdapter<Optional<String>>) gson.getAdapter(TypeToken.getParameterized(Optional.class, String.class));\n"
+        + "        }\n"
+        + "        optional__string_adapter.write(jsonWriter, object.p());\n"
+        + "      }\n"
+        + "      jsonWriter.name(realFieldNames.get(\"q\"));\n"
+        + "      if (object.q() == null) {\n"
+        + "        jsonWriter.nullValue();\n"
+        + "      } else {\n"
+        + "        TypeAdapter<ImmutableList<String>> immutableList__string_adapter = this.immutableList__string_adapter;\n"
+        + "        if (immutableList__string_adapter == null) {\n"
+        + "          this.immutableList__string_adapter = immutableList__string_adapter = (TypeAdapter<ImmutableList<String>>) gson.getAdapter(TypeToken.getParameterized(ImmutableList.class, String.class));\n"
+        + "        }\n"
+        + "        immutableList__string_adapter.write(jsonWriter, object.q());\n"
+        + "      }\n"
+        + "      jsonWriter.name(realFieldNames.get(\"r\"));\n"
+        + "      if (object.r() == null) {\n"
+        + "        jsonWriter.nullValue();\n"
+        + "      } else {\n"
+        + "        TypeAdapter<ImmutableList<String>> immutableList__string_adapter = this.immutableList__string_adapter;\n"
+        + "        if (immutableList__string_adapter == null) {\n"
+        + "          this.immutableList__string_adapter = immutableList__string_adapter = (TypeAdapter<ImmutableList<String>>) gson.getAdapter(TypeToken.getParameterized(ImmutableList.class, String.class));\n"
+        + "        }\n"
+        + "        immutableList__string_adapter.write(jsonWriter, object.r());\n"
+        + "      }\n"
         + "      jsonWriter.endObject();\n"
         + "    }\n"
         + "    @Override\n"
@@ -1623,6 +1677,30 @@ public class AutoValueGsonExtensionTest {
         + "              builder.o(map__string_map__string_map__string_map__string_map__string_wildcard__string_adapter.read(jsonReader));\n"
         + "              continue;\n"
         + "            }\n"
+        + "            if (realFieldNames.get(\"p\").equals(_name)) {\n"
+        + "              TypeAdapter<Optional<String>> optional__string_adapter = this.optional__string_adapter;\n"
+        + "              if (optional__string_adapter == null) {\n"
+        + "                this.optional__string_adapter = optional__string_adapter = (TypeAdapter<Optional<String>>)gson.getAdapter(TypeToken.getParameterized(Optional.class, String.class));\n"
+        + "              }\n"
+        + "              optional__string_adapter.read(jsonReader).ifPresent(x$ -> builder.p(x$));\n"
+        + "              continue;\n"
+        + "            }\n"
+        + "            if (realFieldNames.get(\"q\").equals(_name)) {\n"
+        + "              TypeAdapter<ImmutableList<String>> immutableList__string_adapter = this.immutableList__string_adapter;\n"
+        + "              if (immutableList__string_adapter == null) {\n"
+        + "                this.immutableList__string_adapter = immutableList__string_adapter = (TypeAdapter<ImmutableList<String>>)gson.getAdapter(TypeToken.getParameterized(ImmutableList.class, String.class));\n"
+        + "              }\n"
+        + "              builder.q(immutableList__string_adapter.read(jsonReader));\n"
+        + "              continue;\n"
+        + "            }\n"
+        + "            if (realFieldNames.get(\"r\").equals(_name)) {\n"
+        + "              TypeAdapter<ImmutableList<String>> immutableList__string_adapter = this.immutableList__string_adapter;\n"
+        + "              if (immutableList__string_adapter == null) {\n"
+        + "                this.immutableList__string_adapter = immutableList__string_adapter = (TypeAdapter<ImmutableList<String>>)gson.getAdapter(TypeToken.getParameterized(ImmutableList.class, String.class));\n"
+        + "              }\n"
+        + "              builder.rBuilder().addAll(immutableList__string_adapter.read(jsonReader));\n"
+        + "              continue;\n"
+        + "            }\n"
         + "            jsonReader.skipValue();\n"
         + "          }\n"
         + "        }\n"
@@ -1679,7 +1757,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.SuppressWarnings;\n"
         + "import java.util.ArrayList;\n"
         + "import java.util.Map;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -1820,7 +1898,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.SuppressWarnings;\n"
         + "import java.util.ArrayList;\n"
         + "import java.util.Map;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -1944,7 +2022,7 @@ public class AutoValueGsonExtensionTest {
     JavaFileObject expected = JavaFileObjects.forSourceString("test/AutoValue_Test", ""
         + "package test;\n"
         + "\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\"com.google.auto.value.processor.AutoValueProcessor\")\n"
         + " final class AutoValue_Test extends Test {\n"
@@ -2117,7 +2195,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.SuppressWarnings;\n"
         + "import java.util.ArrayList;\n"
         + "import java.util.Map;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -2248,7 +2326,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.ArrayList;\n"
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -2496,7 +2574,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.lang.SuppressWarnings;\n"
         + "import java.util.ArrayList;\n"
         + "import java.util.Map;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
@@ -2586,9 +2664,10 @@ public class AutoValueGsonExtensionTest {
     nullables.put("using type-target @Nullable", typeTargetNullable);
     nullables.forEach(
         (nullableName, nullableObject) -> {
-          assertAbout(javaSources())
+          assert_()
+              .withMessage(nullableName)
+              .about(javaSources())
               .that(Arrays.asList(nullableObject, source))
-              .named(nullableName)
               .withCompilerOptions("-A" + AutoValueGsonExtension.USE_FIELD_NAME_POLICY)
               .processedWith(
                   new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
