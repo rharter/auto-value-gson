@@ -90,8 +90,8 @@ public class AutoValueGsonAdapterFactoryProcessor extends AbstractProcessor {
         .map(e -> (TypeElement) e)
         .filter(e -> AutoValueGsonExtension.isApplicable(e, processingEnv.getMessager()))
         .sorted((o1, o2) -> {
-          final String o1Name = classNameOf(o1, ".");
-          final String o2Name = classNameOf(o2, ".");
+          final String o1Name = ClassName.get(o1).canonicalName();
+          final String o2Name = ClassName.get(o2).canonicalName();
           return o1Name.compareTo(o2Name);
         })
         .collect(Collectors.toList());
