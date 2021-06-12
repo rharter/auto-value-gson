@@ -104,7 +104,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     final ExecutableElement element;
     final TypeName type;
     final TypeName builderType;
-    final ImmutableSet<String> annotations;
+    final ImmutableSet<AnnotationMirror> typeAnnotations;
+    final ImmutableSet<AnnotationMirror> methodAnnotations;
     final boolean nullable;
     final boolean isTransient;
 
@@ -115,8 +116,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       type = TypeName.get(actualType);
       builderType = TypeName.get(element.getReturnType());
-      annotations = buildAnnotations(element);
-      nullable = nullableAnnotation() != null;
+      typeAnnotations = ImmutableSet.copyOf(element.getReturnType().getAnnotationMirrors());
+      methodAnnotations = ImmutableSet.copyOf(element.getAnnotationMirrors());
+      nullable = nullableTypeAnnotation().isPresent() || nullableMethodAnnotation().isPresent();
       isTransient = element.getAnnotation(AutoTransient.class) != null;
     }
 
@@ -151,26 +153,22 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       return nullable;
     }
 
-    String nullableAnnotation() {
-      for (String annotationString : annotations) {
-        if (annotationString.equals("@Nullable") || annotationString.endsWith(".Nullable")) {
-          return annotationString;
-        }
-      }
-      return null;
+    private Optional<AnnotationMirror> nullableIn(Set<AnnotationMirror> annotations) {
+      return annotations.stream()
+          .filter(
+              annot ->
+                  MoreElements.asType(annot.getAnnotationType().asElement())
+                      .getSimpleName()
+                      .contentEquals("Nullable"))
+          .findFirst();
     }
 
-    private ImmutableSet<String> buildAnnotations(ExecutableElement element) {
-      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+    Optional<AnnotationMirror> nullableTypeAnnotation() {
+      return nullableIn(typeAnnotations);
+    }
 
-      for (AnnotationMirror annotation : element.getAnnotationMirrors()) {
-        builder.add(annotation.getAnnotationType().asElement().toString());
-      }
-      for (AnnotationMirror annotation : element.getReturnType().getAnnotationMirrors()) {
-        builder.add(annotation.getAnnotationType().asElement().toString());
-      }
-
-      return builder.build();
+    Optional<AnnotationMirror> nullableMethodAnnotation() {
+      return nullableIn(methodAnnotations);
     }
   }
 
@@ -418,13 +416,17 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
   private MethodSpec generateConstructor(List<Property> properties, Map<String, TypeName> types) {
     List<ParameterSpec> params = Lists.newArrayList();
-      for (Property property : properties) {
-          ParameterSpec.Builder builder = ParameterSpec.builder(property.type, property.humanName);
-          if (property.nullable()) {
-              builder.addAnnotation(ClassName.bestGuess(property.nullableAnnotation()));
-          }
-          params.add(builder.build());
+    for (Property property : properties) {
+      TypeName type = property.type;
+      if (property.nullableTypeAnnotation().isPresent()) {
+        type = type.annotated(AnnotationSpec.get(property.nullableTypeAnnotation().get()));
       }
+      ParameterSpec.Builder builder = ParameterSpec.builder(type, property.humanName);
+      if (property.nullableMethodAnnotation().isPresent()) {
+        builder.addAnnotation(AnnotationSpec.get(property.nullableMethodAnnotation().get()));
+      }
+      params.add(builder.build());
+    }
 
     MethodSpec.Builder builder = MethodSpec.constructorBuilder()
         .addParameters(params);

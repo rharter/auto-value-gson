@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assert_;
+import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
@@ -1231,6 +1232,37 @@ public class AutoValueGsonExtensionTest {
 
     assertThat(compilation.generatedSourceFiles()).hasSize(1);
     assertThat(compilation.generatedSourceFiles().get(0).getName()).endsWith("AutoValue_Test.java");
+  }
+
+  @Test public void typeTargetNullableOnNestedType() {
+    // If you annotate a nested type like Map.Entry with a TYPE_USE @Nullable, then the correct
+    // spelling is `Map. @Nullable Entry`, and that's what JavaPoet will use in its output.
+    // Previously, though, we ended up generating `@Nullable Map.Entry`, which doesn't compile.
+    // We'd like to write `Map. @Nullable Entry` in the test source, too, rather than importing
+    // Map.Entry, but that runs into problems with some JDK compiler versions which end up not
+    // showing the annotation in the javax.lang.model API.
+    JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
+        + "package test;\n"
+        + "import com.ryanharter.auto.value.gson.Nullable;\n"
+        + "import com.google.auto.value.AutoValue;\n"
+        + "import com.google.gson.TypeAdapter;\n"
+        + "import com.google.gson.Gson;\n"
+        + "import java.util.Map.Entry;\n"
+        + "@AutoValue abstract class Test {\n"
+        + "  public static TypeAdapter<Test> typeAdapter(Gson gson) {\n"
+        + "    return null;\n"
+        + "  }\n"
+        + "  public abstract @Nullable Entry<?, ?> entry();\n"
+        + "}\n"
+    );
+    Compilation compilation = javac()
+        .withProcessors(new AutoValueProcessor(Lists.newArrayList(new AutoValueGsonExtension())))
+        .compile(typeTargetNullable, source);
+    assertThat(compilation).succeeded();
+    assertThat(compilation)
+        .generatedSourceFile("test.AutoValue_Test")
+        .contentsAsUtf8String()
+        .contains("AutoValue_Test(Map. @Nullable Entry<?, ?> entry)");
   }
 
   @Test
