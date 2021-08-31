@@ -1,7 +1,7 @@
 import org.gradle.internal.jvm.Jvm
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version '4.0.1'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
     id 'java-library'
     id 'maven-publish'
 }
@@ -28,7 +28,7 @@ shadowJar {
     exclude 'META-INF/maven/com.google.auto/auto-common/**'
 }
 artifacts {
-    runtime shadowJar
+    runtimeOnly shadowJar
     archives shadowJar
 }
 //</editor-fold>
@@ -45,7 +45,8 @@ dependencies {
 
     api 'com.google.auto.value:auto-value:1.7'
     api 'com.google.auto.value:auto-value-annotations:1.7'
-    api project(':auto-value-gson-runtime')
+    api project(path: ':auto-value-gson-runtime', configuration:'archives')
+    api deps.autotransient
     compileShaded 'com.google.auto:auto-common:0.10'
     compileShaded 'com.google.guava:guava:27.0-jre'
     implementation 'com.squareup:javapoet:1.12.0'

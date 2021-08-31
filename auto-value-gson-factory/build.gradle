@@ -1,7 +1,7 @@
 import org.gradle.internal.jvm.Jvm
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version '4.0.1'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
     id 'java-library'
     id 'maven-publish'
 }
@@ -28,7 +28,7 @@ shadowJar {
     exclude 'META-INF/maven/com.google.auto/auto-common/**'
 }
 artifacts {
-    runtime shadowJar
+    runtimeOnly shadowJar
     archives shadowJar
 }
 //</editor-fold>
