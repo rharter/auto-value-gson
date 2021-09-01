@@ -9,10 +9,12 @@ buildscript {
     }
     dependencies {
         classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
+        classpath "org.owasp:dependency-check-gradle:6.3.0"
     }
 }
 
 allprojects { project ->
+    apply plugin: "org.owasp.dependencycheck"
     project.repositories {
         maven {
             url 'https://oss.sonatype.org/content/repositories/snapshots'
