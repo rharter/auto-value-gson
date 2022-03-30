@@ -906,8 +906,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
+    Property unrecognized = null;
     for (Property prop : properties) {
       if (prop.isTransient()) {
+        continue;
+      }
+      if ("unrecognized".equals(prop.humanName)) {
+        unrecognized = prop;
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
@@ -930,6 +935,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.endControlFlow();
       }
     }
+    if (unrecognized != null) {
+      readMethod.addStatement("builder.unrecognized(new java.util.HashMap<String, String>())");
+    }
+
     readMethod.addStatement("$N.skipValue()", jsonReader);
     readMethod.endControlFlow(); // default case
 

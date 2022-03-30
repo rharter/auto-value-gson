@@ -11,7 +11,7 @@ public class UnrecognizedFieldsTest {
     public void testGsonWithDefaults() {
         Gson gson = createGson();
 
-        String json = "{\"knownField\":9}";
+        String json = "{\"knownField\":9,\"unknownField\":9 }";
         UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
         Assert.assertEquals(9, fromJson.knownField());
     }
