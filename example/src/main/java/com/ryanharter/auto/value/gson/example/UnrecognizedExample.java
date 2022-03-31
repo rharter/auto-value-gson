@@ -19,12 +19,15 @@ public abstract class UnrecognizedExample {
     return new AutoValue_UnrecognizedExample.GsonTypeAdapter(gson);
   }
 
+  @Nullable
   abstract Map<String, Object> unrecognized();
 
   @AutoValue.Builder
   public static abstract class Builder {
     public abstract Builder knownField(int value);
-    abstract Builder unrecognized(Map<String, Object> value);
+    abstract Builder unrecognized(@Nullable Map<String, Object> value);
     public abstract UnrecognizedExample build();
   }
+
+  public @interface Nullable {}
 }
