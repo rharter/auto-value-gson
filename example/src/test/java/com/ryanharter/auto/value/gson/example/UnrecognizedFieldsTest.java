@@ -15,7 +15,7 @@ public class UnrecognizedFieldsTest {
         String json = "{\"knownField\":9,\"unknownField\":7 }";
 
         UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
-        
+
         assertEquals(9, fromJson.knownField());
         assertNotNull(fromJson.unrecognized());
         assertEquals("7", fromJson.unrecognized().get("unknownField"));
@@ -32,6 +32,18 @@ public class UnrecognizedFieldsTest {
         assertNotNull(fromJson.unrecognized());
         assertEquals("7", fromJson.unrecognized().get("unknownField"));
         assertEquals("true", fromJson.unrecognized().get("oneMoreUnknown"));
+    }
+
+    @Test
+    public void unknownObject() {
+        Gson gson = createGson();
+        String json = "{\"knownField\":9,\"unknownObject\":{\"unknownField\":\"test\"}}";
+
+        UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
+
+        assertEquals(9, fromJson.knownField());
+        assertNotNull(fromJson.unrecognized());
+        assertEquals("{\"unknownField\":\"test\"}", fromJson.unrecognized().get("unknownObject"));
     }
 
     private Gson createGson() {

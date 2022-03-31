@@ -15,6 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
@@ -948,11 +949,21 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       readMethod.addStatement("builder.unrecognized(unrecognised)");
       readMethod.endControlFlow();
 
+      readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
+
+      readMethod.addStatement("$T object = gson.fromJson(jsonReader, $T.class)", JsonObject.class, JsonObject.class);
+      readMethod.addStatement("$T value = object.toString()", String.class);
+      readMethod.addStatement("unrecognised.put(_name, value)");
+
+      readMethod.nextControlFlow("else");
+
       TypeName stringAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
       readMethod.addStatement("$T stringAdapter = gson.getAdapter(String.class)", stringAdapterClass);
-
       readMethod.addStatement("$T value = stringAdapter.read(jsonReader)", String.class);
       readMethod.addStatement("unrecognised.put(_name, value)");
+
+      readMethod.endControlFlow(); // else
+
       readMethod.addStatement("continue");
     } else {
       readMethod.addStatement("$N.skipValue()", jsonReader);
