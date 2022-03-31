@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 public class UnrecognisedFieldsTest {
 
@@ -32,27 +31,25 @@ public class UnrecognisedFieldsTest {
     }
 
     @Test
-    public void readUnknownObject() {
+    public void readAndWriteUnknownObject() {
         Gson gson = createGson();
-        String json = "{\"knownField\":9,\"unknownObject\":{\"unknownField\":\"test\"}}";
+        String originalJson = "{\"knownField\":9,\"unknownObject\":{\"unknownField\":\"test\"}}";
 
-        UnrecognisedExample fromJson = gson.fromJson(json, UnrecognisedExample.class);
+        UnrecognisedExample object = gson.fromJson(originalJson, UnrecognisedExample.class);
+        String json = gson.toJson(object);
 
-        assertEquals(9, fromJson.knownField());
-        assertNotNull(fromJson.unrecognised());
-        assertEquals("{\"unknownField\":\"test\"}", fromJson.unrecognised().get("unknownObject").toString());
+        assertEquals(originalJson, json);
     }
 
     @Test
-    public void readUnknownArray() {
+    public void readAndWriteUnknownArray() {
         Gson gson = createGson();
-        String json = "{\"knownField\":9,\"unknownArray\":[1,2,true,{\"a\": \"b\"}]}";
+        String originalJson = "{\"knownField\":9,\"unknownArray\":[1,2,true,{\"a\":\"b\"}]}";
 
-        UnrecognisedExample fromJson = gson.fromJson(json, UnrecognisedExample.class);
+        UnrecognisedExample object = gson.fromJson(originalJson, UnrecognisedExample.class);
+        String json = gson.toJson(object);
 
-        assertEquals(9, fromJson.knownField());
-        assertNotNull(fromJson.unrecognised());
-        assertEquals("[1,2,true,{\"a\":\"b\"}]", fromJson.unrecognised().get("unknownArray").toString());
+        assertEquals(originalJson, json);
     }
 
     private Gson createGson() {

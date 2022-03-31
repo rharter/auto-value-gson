@@ -16,6 +16,7 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.SerializedName;
@@ -720,12 +721,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         writeMethod.beginControlFlow("if(object.unrecognised() != null)");
 
         TypeName stringTypeAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
-        writeMethod.addStatement("$T stringAdapter = gson.getAdapter($T.class)", stringTypeAdapterClass, String.class);
 
         TypeName unrecognizedMapEntryType = ParameterizedTypeName.get(Map.Entry.class, String.class, Object.class);
         writeMethod.beginControlFlow("for ($T entry : object.unrecognised().entrySet())", unrecognizedMapEntryType);
+
         writeMethod.addStatement("jsonWriter.name(entry.getKey())");
-        writeMethod.addStatement("stringAdapter.write(jsonWriter, ($T)entry.getValue())", String.class);
+        writeMethod.addStatement("$T adapter = gson.getAdapter(entry.getValue().getClass())", TypeAdapter.class);
+        writeMethod.addStatement("adapter.write(jsonWriter, entry.getValue())");
+
         writeMethod.endControlFlow(); // for map entries
         writeMethod.endControlFlow(); // if(object.unrecognised() != null)
         continue;
@@ -832,8 +835,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
-    TypeName hashMapOfObjects = ParameterizedTypeName.get(HashMap.class, String.class, Object.class);
-    readMethod.addStatement("$T unrecognised = null", hashMapOfObjects);
+    TypeName mapOfObjects = ParameterizedTypeName.get(LinkedHashMap.class, String.class, Object.class);
+    readMethod.addStatement("$T unrecognised = null", mapOfObjects);
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
@@ -960,7 +963,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (unrecognised != null) {
 
       readMethod.beginControlFlow("if (unrecognised == null)");
-      readMethod.addStatement("unrecognised = new $T()", hashMapOfObjects);
+      readMethod.addStatement("unrecognised = new $T()", mapOfObjects);
       readMethod.addStatement("builder.unrecognised(unrecognised)");
       readMethod.endControlFlow();
 
@@ -976,12 +979,10 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       readMethod.nextControlFlow("else");
 
-      TypeName stringAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
-      readMethod.addStatement("$T stringAdapter = gson.getAdapter(String.class)", stringAdapterClass);
-      readMethod.addStatement("$T value = stringAdapter.read(jsonReader)", String.class);
-      readMethod.addStatement("unrecognised.put(_name, value)");
+      readMethod.addStatement("$T number = gson.fromJson(jsonReader, $T.class)", JsonElement.class, JsonElement.class);
+      readMethod.addStatement("unrecognised.put(_name, number)");
 
-      readMethod.endControlFlow(); // else
+      readMethod.endControlFlow();
 
       readMethod.addStatement("continue");
     } else {
