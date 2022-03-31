@@ -814,6 +814,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
+    ClassName hashMapClass = ClassName.get(HashMap.class);
+    ClassName stringClass = ClassName.get(String.class);
+    TypeName hashMapOfStrings = ParameterizedTypeName.get(hashMapClass, stringClass, stringClass);
+    readMethod.addStatement("$T unrecognised = null", hashMapOfStrings);
+
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
     // Will be empty if using a AutoValue builder
@@ -938,17 +943,16 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
     if (unrecognized != null) {
 
-      ClassName hashMapClass = ClassName.get(HashMap.class);
-      ClassName stringClass = ClassName.get(String.class);
-      TypeName hashMapOfStrings = ParameterizedTypeName.get(hashMapClass, stringClass, stringClass);
+      readMethod.beginControlFlow("if (unrecognised == null)");
+      readMethod.addStatement("unrecognised = new $T()", hashMapOfStrings);
+      readMethod.addStatement("builder.unrecognized(unrecognised)");
+      readMethod.endControlFlow();
 
       TypeName stringAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
       readMethod.addStatement("$T stringAdapter = gson.getAdapter(String.class)", stringAdapterClass);
 
-      readMethod.addStatement("$T unrecognised = new $T()", hashMapOfStrings, hashMapOfStrings);
       readMethod.addStatement("$T value = stringAdapter.read(jsonReader)", String.class);
       readMethod.addStatement("unrecognised.put(_name, value)");
-      readMethod.addStatement("builder.unrecognized(unrecognised)");
       readMethod.addStatement("continue");
     } else {
       readMethod.addStatement("$N.skipValue()", jsonReader);
