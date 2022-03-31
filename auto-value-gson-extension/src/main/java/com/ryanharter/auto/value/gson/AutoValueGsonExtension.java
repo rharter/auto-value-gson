@@ -715,6 +715,22 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (prop.isTransient()) {
         continue;
       }
+
+      if (prop.humanName.equals("unrecognised")) {
+        writeMethod.beginControlFlow("if(object.unrecognised() != null)");
+
+        TypeName stringTypeAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
+        writeMethod.addStatement("$T stringAdapter = gson.getAdapter($T.class)", stringTypeAdapterClass, String.class);
+
+        TypeName unrecognizedMapEntryType = ParameterizedTypeName.get(Map.Entry.class, String.class, Object.class);
+        writeMethod.beginControlFlow("for ($T entry : object.unrecognised().entrySet())", unrecognizedMapEntryType);
+        writeMethod.addStatement("jsonWriter.name(entry.getKey())");
+        writeMethod.addStatement("stringAdapter.write(jsonWriter, ($T)entry.getValue())", String.class);
+        writeMethod.endControlFlow(); // for map entries
+        writeMethod.endControlFlow(); // if(object.unrecognised() != null)
+        continue;
+      }
+
       if (prop.hasSerializedNameAnnotation()) {
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       } else if (useFieldNamePolicy) {
