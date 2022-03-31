@@ -46,6 +46,18 @@ public class UnrecognizedFieldsTest {
         assertEquals("{\"unknownField\":\"test\"}", fromJson.unrecognized().get("unknownObject"));
     }
 
+    @Test
+    public void unknownArray() {
+        Gson gson = createGson();
+        String json = "{\"knownField\":9,\"unknownArray\":[1,2,true,{\"a\": \"b\"}]}";
+
+        UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
+
+        assertEquals(9, fromJson.knownField());
+        assertNotNull(fromJson.unrecognized());
+        assertEquals("[1,2,true,{\"a\":\"b\"}]", fromJson.unrecognized().get("unknownArray"));
+    }
+
     private Gson createGson() {
         return new GsonBuilder()
           .registerTypeAdapterFactory(SampleAdapterFactory.create())
