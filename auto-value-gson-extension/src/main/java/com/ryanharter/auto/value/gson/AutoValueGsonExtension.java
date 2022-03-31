@@ -815,10 +815,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
-    ClassName hashMapClass = ClassName.get(HashMap.class);
-    ClassName stringClass = ClassName.get(String.class);
-    TypeName hashMapOfStrings = ParameterizedTypeName.get(hashMapClass, stringClass, stringClass);
-    readMethod.addStatement("$T unrecognised = null", hashMapOfStrings);
+    TypeName hashMapOfObjects = ParameterizedTypeName.get(HashMap.class, String.class, Object.class);
+    readMethod.addStatement("$T unrecognised = null", hashMapOfObjects);
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
@@ -945,13 +943,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     if (unrecognized != null) {
 
       readMethod.beginControlFlow("if (unrecognised == null)");
-      readMethod.addStatement("unrecognised = new $T()", hashMapOfStrings);
+      readMethod.addStatement("unrecognised = new $T()", hashMapOfObjects);
       readMethod.addStatement("builder.unrecognized(unrecognised)");
       readMethod.endControlFlow();
 
       readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
 
       readMethod.addStatement("$T object = gson.fromJson(jsonReader, $T.class)", JsonObject.class, JsonObject.class);
+      //TODO: put json object directly
       readMethod.addStatement("$T value = object.toString()", String.class);
       readMethod.addStatement("unrecognised.put(_name, value)");
 
