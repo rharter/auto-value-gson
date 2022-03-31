@@ -41,6 +41,7 @@ import io.sweers.autotransient.AutoTransient;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -936,10 +937,23 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       }
     }
     if (unrecognized != null) {
-      readMethod.addStatement("builder.unrecognized(new java.util.HashMap<String, String>())");
+
+      ClassName hashMapClass = ClassName.get(HashMap.class);
+      ClassName stringClass = ClassName.get(String.class);
+      TypeName hashMapOfStrings = ParameterizedTypeName.get(hashMapClass, stringClass, stringClass);
+
+      TypeName stringAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
+      readMethod.addStatement("$T stringAdapter = gson.getAdapter(String.class)", stringAdapterClass);
+
+      readMethod.addStatement("$T unrecognised = new $T()", hashMapOfStrings, hashMapOfStrings);
+      readMethod.addStatement("$T value = stringAdapter.read(jsonReader)", String.class);
+      readMethod.addStatement("unrecognised.put(_name, value)");
+      readMethod.addStatement("builder.unrecognized(unrecognised)");
+      readMethod.addStatement("continue");
+    } else {
+      readMethod.addStatement("$N.skipValue()", jsonReader);
     }
 
-    readMethod.addStatement("$N.skipValue()", jsonReader);
     readMethod.endControlFlow(); // default case
 
     readMethod.endControlFlow(); // switch

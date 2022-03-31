@@ -54,7 +54,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     testImplementation 'com.google.truth:truth:0.42'
     testImplementation 'com.google.testing.compile:compile-testing:0.16'
-    testImplementation files(Jvm.current().getToolsJar())
+    //testImplementation files(Jvm.current().getToolsJar())
 }
 
 apply from: rootProject.file('gradle/gradle-mvn-push.gradle')
