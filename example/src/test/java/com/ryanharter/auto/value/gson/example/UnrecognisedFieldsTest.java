@@ -7,14 +7,14 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-public class UnrecognizedFieldsTest {
+public class UnrecognisedFieldsTest {
 
     @Test
-    public void readWriteFullyRecognizedJson() {
+    public void readWriteFullyRecognisedJson() {
         Gson gson = createGson();
         String sourceJson = "{\"knownField\":9}";
 
-        UnrecognizedExample object = gson.fromJson(sourceJson, UnrecognizedExample.class);
+        UnrecognisedExample object = gson.fromJson(sourceJson, UnrecognisedExample.class);
         String json = gson.toJson(object);
 
         assertEquals(sourceJson, json);
@@ -25,7 +25,7 @@ public class UnrecognizedFieldsTest {
         Gson gson = createGson();
         String sourceJson = "{\"knownField\":9,\"unknownField\":7,\"oneMoreUnknown\":true}";
 
-        UnrecognizedExample object = gson.fromJson(sourceJson, UnrecognizedExample.class);
+        UnrecognisedExample object = gson.fromJson(sourceJson, UnrecognisedExample.class);
         String json = gson.toJson(object);
 
         assertEquals(sourceJson, json);
@@ -36,11 +36,11 @@ public class UnrecognizedFieldsTest {
         Gson gson = createGson();
         String json = "{\"knownField\":9,\"unknownObject\":{\"unknownField\":\"test\"}}";
 
-        UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
+        UnrecognisedExample fromJson = gson.fromJson(json, UnrecognisedExample.class);
 
         assertEquals(9, fromJson.knownField());
-        assertNotNull(fromJson.unrecognized());
-        assertEquals("{\"unknownField\":\"test\"}", fromJson.unrecognized().get("unknownObject").toString());
+        assertNotNull(fromJson.unrecognised());
+        assertEquals("{\"unknownField\":\"test\"}", fromJson.unrecognised().get("unknownObject").toString());
     }
 
     @Test
@@ -48,11 +48,11 @@ public class UnrecognizedFieldsTest {
         Gson gson = createGson();
         String json = "{\"knownField\":9,\"unknownArray\":[1,2,true,{\"a\": \"b\"}]}";
 
-        UnrecognizedExample fromJson = gson.fromJson(json, UnrecognizedExample.class);
+        UnrecognisedExample fromJson = gson.fromJson(json, UnrecognisedExample.class);
 
         assertEquals(9, fromJson.knownField());
-        assertNotNull(fromJson.unrecognized());
-        assertEquals("[1,2,true,{\"a\":\"b\"}]", fromJson.unrecognized().get("unknownArray").toString());
+        assertNotNull(fromJson.unrecognised());
+        assertEquals("[1,2,true,{\"a\":\"b\"}]", fromJson.unrecognised().get("unknownArray").toString());
     }
 
     private Gson createGson() {

@@ -912,13 +912,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
-    Property unrecognized = null;
+    Property unrecognised = null;
     for (Property prop : properties) {
       if (prop.isTransient()) {
         continue;
       }
-      if ("unrecognized".equals(prop.humanName)) {
-        unrecognized = prop;
+      if ("unrecognised".equals(prop.humanName)) {
+        unrecognised = prop;
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
@@ -941,11 +941,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.endControlFlow();
       }
     }
-    if (unrecognized != null) {
+    if (unrecognised != null) {
 
       readMethod.beginControlFlow("if (unrecognised == null)");
       readMethod.addStatement("unrecognised = new $T()", hashMapOfObjects);
-      readMethod.addStatement("builder.unrecognized(unrecognised)");
+      readMethod.addStatement("builder.unrecognised(unrecognised)");
       readMethod.endControlFlow();
 
       readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
@@ -1139,7 +1139,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     } else if (typeName instanceof TypeVariableName) {
       return "java.lang.Object";
     } else {
-      throw new UnsupportedOperationException("Unrecognized TypeName type: " + typeName);
+      throw new UnsupportedOperationException("unrecognised TypeName type: " + typeName);
     }
   }
 }
