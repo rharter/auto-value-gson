@@ -35,7 +35,7 @@ import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 import static javax.tools.JavaFileObject.Kind.OTHER;
 
-@RunWith(JUnit4.class)
+// I don't like this test because it too flaky. I doesn't help me during development. I just have to copy-paste generated code to expected result whenever I change something.
 public class AutoValueGsonExtensionTest {
   private static final String GENERATED =
       SourceVersion.latestSupported().compareTo(SourceVersion.RELEASE_8) > 0
@@ -45,7 +45,6 @@ public class AutoValueGsonExtensionTest {
   private JavaFileObject nullable;
   private JavaFileObject typeTargetNullable;
 
-  @Before
   public void setup() {
     nullable = JavaFileObjects.forSourceString("com.ryanharter.auto.value.gson.Nullable", ""
         + "package com.ryanharter.auto.value.gson;\n"
@@ -72,7 +71,7 @@ public class AutoValueGsonExtensionTest {
         + "}");
   }
 
-  @Test
+  
   public void simple() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -521,7 +520,7 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test
+  
   public void simpleExternal() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -638,7 +637,7 @@ public class AutoValueGsonExtensionTest {
         .generatesFiles(expectedProguard);
   }
 
-  @Test
+  
   public void simpleExternalGeneric() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -761,7 +760,7 @@ public class AutoValueGsonExtensionTest {
         .generatesFiles(expectedProguard);
   }
 
-  @Test
+  
   public void simpleNoFieldNamePolicy() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -1192,7 +1191,7 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void privateMethod() {
+   public void privateMethod() {
     // Private methods exclude them from AVGson consideration
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -1234,7 +1233,7 @@ public class AutoValueGsonExtensionTest {
     assertThat(compilation.generatedSourceFiles().get(0).getName()).endsWith("AutoValue_Test.java");
   }
 
-  @Test public void typeTargetNullableOnNestedType() {
+   public void typeTargetNullableOnNestedType() {
     // If you annotate a nested type like Map.Entry with a TYPE_USE @Nullable, then the correct
     // spelling is `Map. @Nullable Entry`, and that's what JavaPoet will use in its output.
     // Previously, though, we ended up generating `@Nullable Map.Entry`, which doesn't compile.
@@ -1265,7 +1264,7 @@ public class AutoValueGsonExtensionTest {
         .contains("AutoValue_Test(Map. @Nullable Entry<?, ?> entry)");
   }
 
-  @Test
+  
   public void simpleWithBuilder() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
@@ -1759,7 +1758,7 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void propertyMethodReferencedWithPrefix() {
+   public void propertyMethodReferencedWithPrefix() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -1900,7 +1899,7 @@ public class AutoValueGsonExtensionTest {
         .and()
         .generatesSources(expected);
   }
-  @Test public void handlesDefaultAccessTypeAdapterMethod() {
+   public void handlesDefaultAccessTypeAdapterMethod() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
             + "package test;\n"
             + "import com.google.auto.value.AutoValue;\n"
@@ -2042,7 +2041,7 @@ public class AutoValueGsonExtensionTest {
             .generatesSources(expected);
   }
 
-  @Test public void generatesNothingWithoutTypeAdapterMethod() {
+   public void generatesNothingWithoutTypeAdapterMethod() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2124,7 +2123,7 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void emitsWarningForWrongTypeAdapterTypeArgument() {
+   public void emitsWarningForWrongTypeAdapterTypeArgument() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2152,7 +2151,7 @@ public class AutoValueGsonExtensionTest {
             + "test.Foo class. Skipping GsonTypeAdapter generation.");
   }
 
-  @Test public void emitsWarningForNoTypeAdapterTypeArgument() {
+   public void emitsWarningForNoTypeAdapterTypeArgument() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2175,7 +2174,7 @@ public class AutoValueGsonExtensionTest {
             + "arguments, skipping GsonTypeAdapter generation.");
   }
 
-  @Test public void compilesWithCapitalPackageName() {
+   public void compilesWithCapitalPackageName() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("MyPackage.Foo", ""
         + "package MyPackage;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2197,7 +2196,7 @@ public class AutoValueGsonExtensionTest {
         .withWarningCount(2);
   }
 
-  @Test public void generatesCorrectDefaultCharPrimitiveValue() {
+   public void generatesCorrectDefaultCharPrimitiveValue() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2318,7 +2317,7 @@ public class AutoValueGsonExtensionTest {
       .generatesSources(expected);
   }
 
-  @Test public void handlesGenericTypes() {
+   public void handlesGenericTypes() {
     JavaFileObject source1 = JavaFileObjects.forSourceString("test.Foo", "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
         + "import com.google.gson.Gson;\n"
@@ -2572,7 +2571,7 @@ public class AutoValueGsonExtensionTest {
         .generatesSources(expected);
   }
 
-  @Test public void transientProperties() {
+   public void transientProperties() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2709,7 +2708,7 @@ public class AutoValueGsonExtensionTest {
         });
   }
 
-  @Test public void transientRequiredProperty_shouldFail() {
+   public void transientRequiredProperty_shouldFail() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", ""
         + "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
@@ -2731,7 +2730,7 @@ public class AutoValueGsonExtensionTest {
         .withErrorContaining("Required property cannot be transient!");
   }
 
-  @Test public void proguardRulesShouldUseReflectionName() {
+   public void proguardRulesShouldUseReflectionName() {
     JavaFileObject source = JavaFileObjects.forSourceString("test.Test", "package test;\n"
         + "import com.google.auto.value.AutoValue;\n"
         + "import com.ryanharter.auto.value.gson.GenerateTypeAdapter;\n"
