@@ -717,20 +717,20 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         continue;
       }
 
-      if (prop.humanName.equals("unrecognised")) {
-        writeMethod.beginControlFlow("if(object.unrecognised() != null)");
+      if (isUnrecognisedJsonPropertiesContainer(prop)) {
+        writeMethod.beginControlFlow("if(object.$L() != null)", prop.methodName);
 
         TypeName stringTypeAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
 
         TypeName unrecognizedMapEntryType = ParameterizedTypeName.get(Map.Entry.class, String.class, Object.class);
-        writeMethod.beginControlFlow("for ($T entry : object.unrecognised().entrySet())", unrecognizedMapEntryType);
+        writeMethod.beginControlFlow("for ($T entry : object.$L().entrySet())", unrecognizedMapEntryType, prop.methodName);
 
         writeMethod.addStatement("jsonWriter.name(entry.getKey())");
         writeMethod.addStatement("$T adapter = gson.getAdapter(entry.getValue().getClass())", TypeAdapter.class);
         writeMethod.addStatement("adapter.write(jsonWriter, entry.getValue())");
 
         writeMethod.endControlFlow(); // for map entries
-        writeMethod.endControlFlow(); // if(object.unrecognised() != null)
+        writeMethod.endControlFlow(); // if(object.$L() != null)
         continue;
       }
 
@@ -936,7 +936,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (prop.isTransient()) {
         continue;
       }
-      if ("unrecognised".equals(prop.humanName)) {
+      if (isUnrecognisedJsonPropertiesContainer(prop)) {
         unrecognised = prop;
         continue;
       }
@@ -964,7 +964,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
       readMethod.beginControlFlow("if (unrecognised == null)");
       readMethod.addStatement("unrecognised = new $T()", mapOfObjects);
-      readMethod.addStatement("builder.unrecognised(unrecognised)");
+      readMethod.addStatement("builder.$L(unrecognised)", unrecognised.methodName);
       readMethod.endControlFlow();
 
       readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
@@ -1017,6 +1017,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     return readMethod.build();
+  }
+
+  private boolean isUnrecognisedJsonPropertiesContainer(Property unrecognised) {
+    return unrecognised.methodAnnotations.stream()
+      .anyMatch(
+        annot ->
+          annot.getAnnotationType().asElement().getSimpleName().contentEquals(UnrecognisedJsonProperties.class.getSimpleName())
+      );
   }
 
   /**
