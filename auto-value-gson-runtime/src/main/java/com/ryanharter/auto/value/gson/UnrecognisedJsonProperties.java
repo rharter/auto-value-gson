@@ -1,3 +1,4 @@
+// modified by mapbox
 package com.ryanharter.auto.value.gson;
 
 import java.lang.annotation.Retention;

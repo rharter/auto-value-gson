@@ -1,3 +1,4 @@
+// modified by mapbox
 package com.ryanharter.auto.value.gson;
 
 import com.google.auto.common.GeneratedAnnotations;
