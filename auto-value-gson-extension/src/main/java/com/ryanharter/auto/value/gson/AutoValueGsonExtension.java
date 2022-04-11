@@ -835,8 +835,14 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     readMethod.addStatement("return null");
     readMethod.endControlFlow();
 
+    Property unrecognisedJsonPropertiesContainer = properties.stream()
+      .filter(this::isUnrecognisedJsonPropertiesContainer)
+      .findFirst()
+      .orElse(null);
     TypeName mapOfObjects = ParameterizedTypeName.get(LinkedHashMap.class, String.class, Object.class);
-    readMethod.addStatement("$T unrecognised = null", mapOfObjects);
+    if (unrecognisedJsonPropertiesContainer != null) {
+      readMethod.addStatement("$T unrecognised = null", mapOfObjects);
+    }
 
     readMethod.addStatement("$N.beginObject()", jsonReader);
 
@@ -931,13 +937,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     // skip value if field is not serialized...
     readMethod.beginControlFlow("default:");
-    Property unrecognised = null;
     for (Property prop : properties) {
       if (prop.isTransient()) {
         continue;
       }
-      if (isUnrecognisedJsonPropertiesContainer(prop)) {
-        unrecognised = prop;
+      if (prop == unrecognisedJsonPropertiesContainer) {
         continue;
       }
       if (!prop.hasSerializedNameAnnotation()) {
@@ -960,11 +964,11 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.endControlFlow();
       }
     }
-    if (unrecognised != null) {
+    if (unrecognisedJsonPropertiesContainer != null) {
 
       readMethod.beginControlFlow("if (unrecognised == null)");
       readMethod.addStatement("unrecognised = new $T()", mapOfObjects);
-      readMethod.addStatement("builder.$L(unrecognised)", unrecognised.methodName);
+      readMethod.addStatement("builder.$L(unrecognised)", unrecognisedJsonPropertiesContainer.methodName);
       readMethod.endControlFlow();
 
       readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
