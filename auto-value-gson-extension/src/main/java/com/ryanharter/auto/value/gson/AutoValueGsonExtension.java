@@ -972,22 +972,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       readMethod.addStatement("builder.$L(unrecognised)", unrecognisedJsonPropertiesContainer.methodName);
       readMethod.endControlFlow();
 
-      readMethod.beginControlFlow("if (jsonReader.peek() == $T.BEGIN_OBJECT)", JsonToken.class);
-
-      readMethod.addStatement("$T object = gson.fromJson(jsonReader, $T.class)", JsonObject.class, JsonObject.class);
-      readMethod.addStatement("unrecognised.put(_name, object)");
-
-      readMethod.nextControlFlow("else if (jsonReader.peek() == $T.BEGIN_ARRAY)", JsonToken.class);
-
-      readMethod.addStatement("$T array = gson.fromJson(jsonReader, $T.class)", JsonArray.class, JsonArray.class);
-      readMethod.addStatement("unrecognised.put(_name, array)");
-
-      readMethod.nextControlFlow("else");
-
       readMethod.addStatement("$T number = gson.fromJson(jsonReader, $T.class)", JsonElement.class, JsonElement.class);
       readMethod.addStatement("unrecognised.put(_name, number)");
-
-      readMethod.endControlFlow();
 
       readMethod.addStatement("continue");
     } else {
