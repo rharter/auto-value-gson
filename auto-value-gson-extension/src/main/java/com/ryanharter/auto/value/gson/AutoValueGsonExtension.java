@@ -25,6 +25,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.ryanharter.auto.value.gson.internal.SerializableWrapper;
 import com.ryanharter.auto.value.gson.internal.WildcardUtil;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
@@ -727,8 +728,9 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         writeMethod.beginControlFlow("for ($T entry : object.$L().entrySet())", unrecognizedMapEntryType, prop.methodName);
 
         writeMethod.addStatement("jsonWriter.name(entry.getKey())");
-        writeMethod.addStatement("$T adapter = gson.getAdapter(entry.getValue().getClass())", TypeAdapter.class);
-        writeMethod.addStatement("adapter.write(jsonWriter, entry.getValue())");
+        writeMethod.addStatement("$T element = (($T)entry.getValue()).getElement()", JsonElement.class, SerializableWrapper.class);
+        writeMethod.addStatement("$T adapter = gson.getAdapter(element.getClass())", TypeAdapter.class);
+        writeMethod.addStatement("adapter.write(jsonWriter, element)");
 
         writeMethod.endControlFlow(); // for map entries
         writeMethod.endControlFlow(); // if(object.$L() != null)
@@ -973,7 +975,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       readMethod.endControlFlow();
 
       readMethod.addStatement("$T number = gson.fromJson(jsonReader, $T.class)", JsonElement.class, JsonElement.class);
-      readMethod.addStatement("unrecognised.put(_name, number)");
+      readMethod.addStatement("unrecognised.put(_name, new $T(number))", SerializableWrapper.class);
 
       readMethod.addStatement("continue");
     } else {
