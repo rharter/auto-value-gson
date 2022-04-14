@@ -8,8 +8,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.CLASS;
 
 /**
- * If present, indicates that the annotated method should be used for retrieving an instance of the
- * AutoValue.Builder. Only necessary if there is more than one builder method.
+ * Indicates that a filed of type Map<String, Object> is a container for unrecognised JSON properties.
  */
 @Retention(CLASS)
 @Target(METHOD)
