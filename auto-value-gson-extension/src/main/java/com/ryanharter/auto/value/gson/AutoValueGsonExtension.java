@@ -722,8 +722,6 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       if (isUnrecognisedJsonPropertiesContainer(prop)) {
         writeMethod.beginControlFlow("if(object.$L() != null)", prop.methodName);
 
-        TypeName stringTypeAdapterClass = ParameterizedTypeName.get(TypeAdapter.class, String.class);
-
         TypeName unrecognizedMapEntryType = ParameterizedTypeName.get(Map.Entry.class, String.class, Object.class);
         writeMethod.beginControlFlow("for ($T entry : object.$L().entrySet())", unrecognizedMapEntryType, prop.methodName);
 
