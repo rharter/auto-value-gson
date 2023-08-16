@@ -6,6 +6,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import com.google.gson.JsonObject;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -75,5 +76,30 @@ public class PersonTest {
         Assert.assertEquals("Jane Doe", fromJson.name());
         Assert.assertEquals(23, fromJson.age());
         Assert.assertEquals(0, fromJson.gender());
+    }
+
+    @Test
+    public void testGsonWithDefaultsWrite() {
+        Gson gson = new GsonBuilder()
+            .registerTypeAdapterFactory(SampleAdapterFactory.create())
+            .create();
+
+        // gender has the default value and should be omitted from the output.
+        // name is also optional but not the default, it should be included.
+        // age has a builder getter defined, but isn't optional, it should be included.
+        Person toJson = Person.builder()
+            .name("Auto Value")
+            .gender(0)
+            .age(42)
+            .birthdate(new Date())
+            .address(Address.create("street", "city"))
+            .build();
+        String json = gson.toJson(toJson, Person.class);
+        JsonObject rawObject = gson.fromJson(json, JsonObject.class);
+        Assert.assertFalse(rawObject.has("gender"));
+        Assert.assertTrue(rawObject.has("name"));
+        Assert.assertEquals(rawObject.get("name").getAsString(), "Auto Value");
+        Assert.assertTrue(rawObject.has("age"));
+        Assert.assertEquals(rawObject.get("age").getAsInt(), 42);
     }
 }

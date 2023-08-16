@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -54,7 +55,9 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.DeclaredType;
@@ -173,6 +176,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
   }
 
   private boolean useFieldNamePolicy = false;
+  private boolean omitDefaults = false;
 
   @Override
   public IncrementalExtensionType incrementalType(ProcessingEnvironment processingEnvironment) {
@@ -184,6 +188,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     useFieldNamePolicy = context.processingEnvironment()
         .getOptions()
         .containsKey(USE_FIELD_NAME_POLICY);
+    //noinspection UnstableApiUsage
+    omitDefaults = MoreElements.isAnnotationPresent(context.autoValueClass(), OmitDefaults.class);
     return isApplicable(context.autoValueClass(), context.processingEnvironment().getMessager());
   }
 
@@ -464,6 +470,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
       List<TypeVariableName> typeParams,
       @Nullable BuilderContext builderContext,
       ProcessingEnvironment processingEnvironment) {
+    if (omitDefaults && builderContext == null) {
+      processingEnvironment.getMessager()
+          .printMessage(
+              Diagnostic.Kind.ERROR,
+              "@OmitDefaults can only be applied to classes with a builder",
+              autoValueType);
+    }
     ClassName typeAdapterClass = ClassName.get(TypeAdapter.class);
     final TypeName autoValueTypeName = !typeParams.isEmpty()
         ? ParameterizedTypeName.get(autoValueClassName, typeParams.toArray(new TypeName[typeParams.size()]))
@@ -472,7 +485,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     ParameterSpec gsonParam = ParameterSpec.builder(Gson.class, "gson").build();
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder()
-            .addParameter(gsonParam);
+        .addParameter(gsonParam);
 
     if (!typeParams.isEmpty()) {
 
@@ -512,7 +525,7 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     classBuilder.addField(FieldSpec.builder(Gson.class, "gson", PRIVATE, FINAL).build())
         .addMethod(constructor.build())
         .addMethod(createWriteMethod(autoValueTypeName, properties, adapters,
-            jsonAdapter, typeParams))
+            jsonAdapter, typeParams, builderContext))
         .addMethod(createReadMethod(className, autoValueClassName, autoValueTypeName, properties,
             adapters, jsonAdapter, typeParams, builderContext, processingEnvironment))
         .addMethod(MethodSpec.methodBuilder("toString")
@@ -529,6 +542,15 @@ public class AutoValueGsonExtension extends AutoValueExtension {
 
     if (!typeParams.isEmpty()) {
       classBuilder.addField(FieldSpec.builder(Type[].class, "typeArgs", PRIVATE, FINAL).build());
+    }
+
+    if (omitDefaults) {
+      ExecutableElement builderMethod =
+          findBuilderMethod(builderContext).orElseThrow(IllegalStateException::new);
+      classBuilder.addField(
+          FieldSpec.builder(ClassName.get(builderContext.builderType().asType()), "defaults", PRIVATE, FINAL)
+              .initializer("$T.$N()", autoValueClassName, builderMethod.getSimpleName())
+              .build());
     }
 
     return classBuilder.build();
@@ -685,11 +707,13 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     block.addStatement("$N = $N.read($N)", fields.get(prop), adapter, jsonReader);
   }
 
-  private MethodSpec createWriteMethod(TypeName autoValueClassName,
+  private MethodSpec createWriteMethod(
+      TypeName autoValueClassName,
       List<Property> properties,
       ImmutableMap<TypeName, FieldSpec> adapters,
       ClassName jsonAdapter,
-      List<TypeVariableName> typeParams) {
+      List<TypeVariableName> typeParams,
+      @Nullable BuilderContext builderContext) {
     ParameterSpec jsonWriter = ParameterSpec.builder(JsonWriter.class, "jsonWriter").build();
     ParameterSpec annotatedParam = ParameterSpec.builder(autoValueClassName, "object").build();
     MethodSpec.Builder writeMethod = MethodSpec.methodBuilder("write")
@@ -707,11 +731,46 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     writeMethod.addStatement("return");
     writeMethod.endControlFlow();
 
+    writeMethod.addStatement("boolean isOptionalAndAtDefault");
+
     writeMethod.addStatement("$N.beginObject()", jsonWriter);
     for (Property prop : properties) {
       if (prop.isTransient()) {
         continue;
       }
+      Optional<ExecutableElement> builderGetter = Optional.empty();
+      if (omitDefaults) {
+        // A property is optional if it has a matching getter in the builder. There is no
+        // convenience method for this in BuilderContext, so we look for it manually.
+        // https://github.com/google/auto/blob/main/value/userguide/builders-howto.md#-normalize-modify-a-property-value-at-build-time
+        builderGetter = builderContext.builderType()
+            .getEnclosedElements()
+            .stream()
+            .filter(e -> e.getSimpleName().contentEquals(prop.methodName))
+            .filter(e -> e.getKind() == ElementKind.METHOD)
+            .map(e -> (ExecutableElement) e)
+            .filter(e -> e.getParameters().isEmpty())
+            .filter(e -> e.getModifiers().contains(ABSTRACT))
+            .filter(e -> e.getReturnType().equals(prop.element.getReturnType()))
+            .findFirst();
+      }
+
+      builderGetter.ifPresent(getter -> {
+        writeMethod.beginControlFlow("try");
+        writeMethod.addStatement("isOptionalAndAtDefault = $T.equals(defaults.$N(), $N.$N())",
+            Objects.class,
+            getter.getSimpleName(),
+            annotatedParam,
+            prop.methodName);
+        // A builder getter throws IllegalStateException if the builder doesn't have the property
+        // set and the property is non-nullable, i.e., it isn't optional.
+        writeMethod.nextControlFlow("catch ($T e)", IllegalStateException.class);
+        writeMethod.addStatement("isOptionalAndAtDefault = false");
+        writeMethod.endControlFlow();
+
+        writeMethod.beginControlFlow("if (!isOptionalAndAtDefault)");
+      });
+
       if (prop.hasSerializedNameAnnotation()) {
         writeMethod.addStatement("$N.name($S)", jsonWriter, prop.serializedName());
       } else if (useFieldNamePolicy) {
@@ -741,6 +800,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         block.add("}\n");
         writeMethod.addCode(block.build());
       }
+
+      builderGetter.ifPresent(executableElement -> writeMethod.endControlFlow());
     }
     writeMethod.addStatement("$N.endObject()", jsonWriter);
 
@@ -831,23 +892,8 @@ public class AutoValueGsonExtension extends AutoValueExtension {
         readMethod.addStatement("$T $N = new $T.$L()", builderField.get().type, builderField.get(),
             className, builderContext.builderType().getSimpleName());
       } else {
-        ExecutableElement builderMethod;
-        if (builderMethods.size() == 1) {
-          // If there is only 1, use it.
-          builderMethod = builderMethods.stream().findFirst().get();
-        } else {
-          // Otherwise, find the only builder method that is annotated.
-          Set<ExecutableElement> annotatedMethods = builderMethods.stream()
-              .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
-              .collect(Collectors.toSet());
-
-          if (annotatedMethods.size() == 1) {
-            builderMethod = annotatedMethods.stream().findFirst().get();
-          } else {
-            throw new IllegalStateException();
-          }
-        }
-
+        ExecutableElement builderMethod =
+            findBuilderMethod(builderContext).orElseThrow(IllegalStateException::new);
         readMethod.addStatement("$T $N = $T.$N()", builderField.get().type, builderField.get(),
             autoValueClassName, builderMethod.getSimpleName());
       }
@@ -959,6 +1005,25 @@ public class AutoValueGsonExtension extends AutoValueExtension {
     }
 
     return readMethod.build();
+  }
+
+  private static Optional<ExecutableElement> findBuilderMethod(BuilderContext builderContext) {
+    Set<ExecutableElement> builderMethods = builderContext.builderMethods();
+    if (builderMethods.size() == 1) {
+      // If there is only 1, use it.
+      return builderMethods.stream().findFirst();
+    } else {
+      // Otherwise, find the only builder method that is annotated.
+      Set<ExecutableElement> annotatedMethods = builderMethods.stream()
+          .filter(e -> MoreElements.isAnnotationPresent(e, AutoValueGsonBuilder.class))
+          .collect(Collectors.toSet());
+
+      if (annotatedMethods.size() == 1) {
+        return annotatedMethods.stream().findFirst();
+      } else {
+        return Optional.empty();
+      }
+    }
   }
 
   /**

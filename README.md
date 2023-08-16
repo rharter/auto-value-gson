@@ -98,6 +98,35 @@ useful for setting default values.
 }
 ```
 
+### Omitting default values
+
+When using a builder, optional properties that are at their default values can optionally be emitted
+from the serialized JSON by annotating the class with `@OmitDefaults`.
+
+A property is considered optional if a value is set for it on the builder returned by the static
+builder method and the builder defines a getter method for it:
+
+```java
+@AutoValue public abstract class Foo {
+  abstract int bar();
+  abstract String quux();
+
+  public static Builder builderWithDefaults() {
+    return new AutoValue_Foo.Builder()
+        .quuz("QUUX");
+  }
+
+  @AutoValue.Builder
+  public static abstract class Builder {
+    public abstract Builder bar(int bar);
+    public abstract Builder quux(String quux);
+    // getter for quux
+    public abstract String quux();
+    public abstract Foo build();
+  }
+}
+```
+
 ## Field name policy
 
 If you want the generated adapter classes to use the input `Gson` instance's field name policy, you can 
