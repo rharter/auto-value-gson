@@ -3,9 +3,11 @@ package com.ryanharter.auto.value.gson.example;
 import com.google.auto.value.AutoValue;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
+import com.ryanharter.auto.value.gson.OmitDefaults;
 import java.util.Date;
 
 @AutoValue
+@OmitDefaults
 public abstract class Person {
     public abstract String name();
 
@@ -32,9 +34,15 @@ public abstract class Person {
     public static abstract class Builder {
         public abstract Builder name(String name);
 
+        public abstract String name();
+
         public abstract Builder gender(int gender);
 
+        public abstract int gender();
+
         public abstract Builder age(int age);
+
+        public abstract int age();
 
         public abstract Builder birthdate(Date birthdate);
 
