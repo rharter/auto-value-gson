@@ -841,7 +841,7 @@ public class AutoValueGsonExtensionTest {
         + "import java.util.List;\n"
         + "import java.util.Map;\n"
         + "import java.util.Set;\n"
-        + "import javax.annotation.Generated;\n"
+        + "import " + GENERATED + ";\n"
         + "\n"
         + "@Generated(\n"
         + "    value = \"com.ryanharter.auto.value.gson.AutoValueGsonExtension\",\n"
