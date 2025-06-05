@@ -7,7 +7,6 @@ targetCompatibility = JavaVersion.VERSION_1_8
 dependencies {
     compileOnly deps.errorProneAnnotations
     compileOnly deps.jetbrainsAnnotations
-    api deps.autotransient
     api deps.gson
 }
 

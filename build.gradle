@@ -9,13 +9,15 @@ buildscript {
     }
     dependencies {
         classpath "net.ltgt.gradle:gradle-apt-plugin:0.19"
+        classpath "org.owasp:dependency-check-gradle:6.3.0"
     }
 }
 
 allprojects { project ->
+    apply plugin: "org.owasp.dependencycheck"
     project.repositories {
         maven {
-            url 'http://oss.sonatype.org/content/repositories/snapshots'
+            url 'https://oss.sonatype.org/content/repositories/snapshots'
         }
         mavenCentral()
     }
@@ -43,8 +45,3 @@ ext.deps = [
     jetbrainsAnnotations: 'org.jetbrains:annotations-java5:16.0.2',
     gson: 'com.google.code.gson:gson:2.8.5'
 ]
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.10.2'
-    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
-}
